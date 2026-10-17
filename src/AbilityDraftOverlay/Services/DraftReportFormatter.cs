@@ -1,5 +1,5 @@
+﻿using AbilityDraftOverlay.Models;
 using System.Text;
-using AbilityDraftOverlay.Models;
 
 namespace AbilityDraftOverlay.Services;
 
@@ -13,9 +13,11 @@ public static class DraftReportFormatter
         {
             var hero = player.FirstOrDefault(s => s.Slot.Type == SlotType.Hero);
             var abilities = player.Where(s => s.Slot.Type == SlotType.Ability).OrderBy(s => s.Slot.Index);
-            text.Append("Игрок ").Append(player.Key)
-                .Append(" (команда ").Append(player.First().Slot.Team).Append("): герой — ").Append(Describe(hero))
-                .Append("; способности — ").AppendJoin(", ", abilities.Select(Describe)).AppendLine();
+            text
+                .Append($"{player.Key} | ")
+                .Append($"{Describe(hero)} | ")
+                .AppendJoin(" ", abilities.Select(i => $"[{Describe(i)}]"))
+                .AppendLine();
         }
         return text.ToString().TrimEnd();
     }
@@ -26,7 +28,7 @@ public static class DraftReportFormatter
         return result.State switch
         {
             SlotState.Recognized => result.DisplayName ?? result.EntityId ?? "?",
-            SlotState.Uncertain => $"?{result.DisplayName ?? result.EntityId} ({result.Score:0.00})",
+            SlotState.Uncertain => result.DisplayName ?? result.EntityId ?? "?",
             SlotState.OutOfBounds => "[вне кадра]",
             _ => "—"
         };
