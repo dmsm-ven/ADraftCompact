@@ -14,6 +14,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
+        Loaded += (_, _) => viewModel.UpdateResourceSummary();
         viewModel.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(MainViewModel.CurrentFramePath))

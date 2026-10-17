@@ -1,6 +1,8 @@
 using System.Threading;
 using System.Windows;
 using AbilityDraftOverlay.Services;
+using AbilityDraftOverlay.Logging;
+using Microsoft.Extensions.Logging;
 using AbilityDraftOverlay.ViewModels;
 using AbilityDraftOverlay.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,9 +32,16 @@ public partial class App : Application
         }
 
         _host = Host.CreateDefaultBuilder()
+            .ConfigureLogging(logging =>
+            {
+                logging.ClearProviders();
+                logging.AddProvider(new FileLoggerProvider());
+                logging.SetMinimumLevel(LogLevel.Debug);
+            })
             .ConfigureServices((_, services) =>
             {
                 services.AddSingleton<DotaAssetsDownloader>();
+                services.AddSingleton<ScreenshotRecognitionService>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })

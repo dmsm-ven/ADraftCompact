@@ -1,71 +1,177 @@
-<Window x:Class="AbilityDraftOverlay.Views.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Ability Draft Overlay" Width="1120" Height="760"
-        MinWidth="900" MinHeight="600" WindowStartupLocation="CenterScreen"
-        Background="#FF171A21" Foreground="#FFF2F4F8" FontFamily="Segoe UI">
+﻿<Window
+    x:Class="AbilityDraftOverlay.Views.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Ability Draft Overlay"
+    Width="1120"
+    Height="760"
+    MinWidth="900"
+    MinHeight="600"
+    Background="#FF171A21"
+    FontFamily="Segoe UI"
+    Foreground="#FFF2F4F8"
+    WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#FF303744" />
+            <Setter Property="Foreground" Value="#FFF2F4F8" />
+            <Setter Property="BorderBrush" Value="#FF485263" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="MinWidth" Value="34" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border
+                            x:Name="ButtonBorder"
+                            Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF414B5C" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF202630" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
     <Grid Margin="18">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <DockPanel Margin="0,0,0,14">
+            <Button
+                MinWidth="60"
+                Margin="8,0,0,0"
+                Command="{Binding DownloadResourcesCommand}"
+                Content="⇩"
+                DockPanel.Dock="Right"
+                FontSize="18"
+                ToolTip="Загрузить ресурсы Dota 2" />
             <StackPanel>
-                <TextBlock FontSize="25" FontWeight="SemiBold" Text="Ability Draft Overlay"/>
-                <TextBlock Margin="0,5,0,0" Foreground="#FFB3BAC7"
-                           Text="Тестирование кадров и загрузка ресурсов Dota 2 · без OCR и AI"/>
+                <TextBlock
+                    FontSize="25"
+                    FontWeight="SemiBold"
+                    Text="Ability Draft Overlay" />
+                <TextBlock
+                    Margin="0,5,0,0"
+                    Foreground="#FFB3BAC7"
+                    Text="Тестирование кадров и загрузка ресурсов Dota 2 · без OCR и AI" />
             </StackPanel>
-            <Button DockPanel.Dock="Right" Content="Загрузить ресурсы" Command="{Binding DownloadResourcesCommand}"
-                   />
         </DockPanel>
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.35*"/>
-                <ColumnDefinition Width="12"/>
-                <ColumnDefinition Width="1*"/>
+                <ColumnDefinition Width="1.35*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="1*" />
             </Grid.ColumnDefinitions>
-            <Border Grid.Column="0" Background="#FF232833" CornerRadius="8" Padding="12">
+            <Border
+                Grid.Column="0"
+                Padding="12"
+                Background="#FF232833"
+                CornerRadius="8">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <DockPanel Margin="0,0,0,10">
-                        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Текущий кадр" VerticalAlignment="Center"/>
-                        <Button DockPanel.Dock="Right" Content="Выбрать следующий кадр..." Click="SelectFrameButton_Click"/>
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            Text="Текущий кадр" />
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button
+                                Margin="0,0,6,0"
+                                Click="SelectFrameButton_Click"
+                                Content="▣"
+                                FontSize="16"
+                                ToolTip="Выбрать скриншот" />
+                            <Button
+                                Command="{Binding RecognizeScreenshotCommand}"
+                                Content="⌕"
+                                FontSize="18"
+                                IsEnabled="{Binding CanRecognize}"
+                                ToolTip="Распознать скриншот по иконкам" />
+                        </StackPanel>
                     </DockPanel>
-                    <Border Grid.Row="1" Background="#FF101216" CornerRadius="4" ClipToBounds="True">
+                    <Border
+                        Grid.Row="1"
+                        Background="#FF101216"
+                        ClipToBounds="True"
+                        CornerRadius="4">
                         <Grid>
-                            <Image x:Name="FrameImage" Stretch="Uniform"/>
-                            <TextBlock x:Name="EmptyFrameText" Text="Выберите файл скриншота (PNG, JPG, BMP)"
-                                       Foreground="#FFB3BAC7" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       TextAlignment="Center" TextWrapping="Wrap" Margin="20"/>
+                            <Image x:Name="FrameImage" Stretch="Uniform" />
+                            <TextBlock
+                                x:Name="EmptyFrameText"
+                                Margin="20"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Foreground="#FFB3BAC7"
+                                Text="Выберите файл скриншота (PNG, JPG, BMP)"
+                                TextAlignment="Center"
+                                TextWrapping="Wrap" />
                         </Grid>
                     </Border>
                 </Grid>
             </Border>
 
-            <Border Grid.Column="2" Background="#FF232833" CornerRadius="8" Padding="12">
+            <Border
+                Grid.Column="2"
+                Padding="12"
+                Background="#FF232833"
+                CornerRadius="8">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="События" Margin="0,0,0,10"/>
-                    <ListBox Grid.Row="1" ItemsSource="{Binding Events}" Background="#FF171A21"
-                             Foreground="#FFF2F4F8" BorderBrush="#FF3A414E" Padding="4">
+                    <TextBlock
+                        Margin="0,0,0,10"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="События" />
+                    <ListBox
+                        Grid.Row="1"
+                        Padding="4"
+                        Background="#FF171A21"
+                        BorderBrush="#FF3A414E"
+                        Foreground="#FFF2F4F8"
+                        ItemsSource="{Binding Events}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="#FF343B47" BorderThickness="0,0,0,1" Padding="5,8">
+                                <Border
+                                    Padding="5,8"
+                                    BorderBrush="#FF343B47"
+                                    BorderThickness="0,0,0,1">
                                     <StackPanel>
-                                        <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap"/>
-                                        <TextBlock Margin="0,3,0,0" FontSize="11" Foreground="#FFB3BAC7">
-                                            <Run Text="{Binding DetectedAt, StringFormat={}{0:HH:mm:ss}}"/>
-                                            <Run Text=" · "/>
-                                            <Run Text="{Binding Kind}"/>
+                                        <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                                        <TextBlock
+                                            Margin="0,3,0,0"
+                                            FontSize="11"
+                                            Foreground="#FFB3BAC7">
+                                            <Run Text="{Binding DetectedAt, StringFormat={}{0:HH:mm:ss}}" />
+                                            <Run Text=" · " />
+                                            <Run Text="{Binding Kind}" />
                                         </TextBlock>
                                     </StackPanel>
                                 </Border>
@@ -76,17 +182,41 @@
             </Border>
         </Grid>
 
-        <Grid Grid.Row="2" Margin="0,12,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Text="{Binding StatusText}" Foreground="#FFB3BAC7" VerticalAlignment="Center"
-                       TextWrapping="Wrap"/>
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button Content="Очистить события" Command="{Binding ClearEventsCommand}"/>
-                <Button Content="Выход" Click="ExitButton_Click" Margin="0"/>
+        <DockPanel
+            Grid.Row="2"
+            Margin="0,12,0,0"
+            LastChildFill="True">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button
+                    Margin="6,0,6,0"
+                    Command="{Binding ClearEventsCommand}"
+                    Content="⌫"
+                    ToolTip="Очистить журнал событий" />
             </StackPanel>
-        </Grid>
+            <Border
+                Padding="9,6"
+                Background="#FF202630"
+                BorderBrush="#FF343B47"
+                BorderThickness="1"
+                CornerRadius="5">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Foreground="#FFD0D6E0"
+                        Text="{Binding StatusText}"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        Grid.Column="1"
+                        Margin="14,0,0,0"
+                        VerticalAlignment="Center"
+                        Foreground="#FF9EA9BA"
+                        Text="{Binding ResourceSummary}" />
+                </Grid>
+            </Border>
+        </DockPanel>
     </Grid>
 </Window>

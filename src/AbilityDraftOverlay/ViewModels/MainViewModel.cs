@@ -1,71 +1,146 @@
-using System.Collections.ObjectModel;
-using System.IO;
+﻿using AbilityDraftOverlay.Models;
+using AbilityDraftOverlay.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using AbilityDraftOverlay.Models;
-using AbilityDraftOverlay.Services;
+using Microsoft.Extensions.Logging;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Net.Http;
+using System.Windows;
 
 namespace AbilityDraftOverlay.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
     private readonly DotaAssetsDownloader _assetsDownloader;
+    private readonly ScreenshotRecognitionService _recognizer;
+    private readonly ILogger<MainViewModel> _logger;
 
-    [ObservableProperty]
-    private string statusText = "Готово. Выберите скриншот или загрузите игровые ресурсы.";
-
-    [ObservableProperty]
-    private string? currentFramePath;
-
-    [ObservableProperty]
-    private bool isBusy;
-
+    [ObservableProperty] private string statusText = "Готово.";
+    [ObservableProperty] private string? currentFramePath;
+    [ObservableProperty] private bool isBusy;
+    [ObservableProperty] private string resourceSummary = "Ресурсы: проверка...";
     public ObservableCollection<DraftEvent> Events { get; } = new();
+    public bool CanRecognize => !IsBusy && !string.IsNullOrWhiteSpace(CurrentFramePath);
 
-    public MainViewModel(DotaAssetsDownloader assetsDownloader)
+    public MainViewModel(DotaAssetsDownloader assetsDownloader, ScreenshotRecognitionService recognizer, ILogger<MainViewModel> logger)
     {
         _assetsDownloader = assetsDownloader;
+        _recognizer = recognizer;
+        _logger = logger;
+        UpdateResourceSummary();
     }
+
+    partial void OnCurrentFramePathChanged(string? value) => OnPropertyChanged(nameof(CanRecognize));
+    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(CanRecognize));
 
     public void SetFrame(string path)
     {
         CurrentFramePath = path;
-        StatusText = $"Выбран кадр: {Path.GetFileName(path)}. Распознавание пока не подключено.";
-        Events.Insert(0, new DraftEvent(Events.Count + 1, 0, DraftEventKind.Frame,
-            path, $"Выбран следующий кадр: {Path.GetFileName(path)}", DateTimeOffset.Now));
+        StatusText = $"Выбран кадр: {Path.GetFileName(path)}";
+        AddEvent(DraftEventKind.Frame, path, StatusText);
+    }
+
+    [RelayCommand]
+    private async Task RecognizeScreenshotAsync()
+    {
+        if (IsBusy || string.IsNullOrWhiteSpace(CurrentFramePath)) return;
+        IsBusy = true;
+        AddEvent(DraftEventKind.Resource, "recognition", "Начато распознавание скриншота по базе иконок.");
+        try
+        {
+            StatusText = "Распознавание скриншота...";
+            var matches = await _recognizer.RecognizeAsync(CurrentFramePath);
+            if (matches.Count == 0)
+            {
+                StatusText = "Совпадений не найдено. Попробуйте скриншот с более крупными иконками.";
+                AddEvent(DraftEventKind.Error, "recognition", StatusText);
+            }
+            else
+            {
+                foreach (var match in matches.OrderBy(m => m.Y).ThenBy(m => m.X))
+                    AddEvent(match.Category == "Герой" ? DraftEventKind.Hero : DraftEventKind.Ability,
+                        match.Name, $"{match.Category}: {match.Name} · совпадение {match.Confidence:P0} · X:{match.X}, Y:{match.Y}");
+                StatusText = $"Распознавание завершено: найдено совпадений {matches.Count}.";
+                AddEvent(DraftEventKind.Resource, "recognition-summary", StatusText);
+            }
+            _logger.LogInformation("{StatusText}", StatusText);
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Ошибка распознавания: {ex.Message}";
+            AddEvent(DraftEventKind.Error, "recognition", StatusText);
+            _logger.LogError(ex, "Ошибка распознавания скриншота");
+        }
+        finally { IsBusy = false; }
     }
 
     [RelayCommand]
     private async Task DownloadResourcesAsync()
     {
-        if (IsBusy)
-            return;
-
+        if (IsBusy) return;
         IsBusy = true;
+        AddEvent(DraftEventKind.Resource, "download", "Проверка доступности источника ресурсов.");
+        _logger.LogInformation("Пользователь запросил загрузку ресурсов");
         try
         {
-            StatusText = "Загрузка ресурсов Dota 2...";
-            var result = await _assetsDownloader.DownloadAsync(message =>
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            bool available;
+            try { available = await _assetsDownloader.CheckAvailabilityAsync(timeout.Token); }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
-                App.Current.Dispatcher.Invoke(() => StatusText = message);
-            });
+                _logger.LogWarning(ex, "OpenDota недоступен на этапе проверки");
+                available = false;
+            }
+            if (!available)
+            {
+                StatusText = "Источники ресурсов недоступны. Загрузка отменена; проверьте подключение к сети.";
+                AddEvent(DraftEventKind.Error, "resource-check", StatusText);
+                _logger.LogWarning("Загрузка отменена: OpenDota недоступен");
+                return;
+            }
 
-            Events.Insert(0, new DraftEvent(Events.Count + 1, 0, DraftEventKind.Resource,
-                "assets", $"Загрузка ресурсов завершена: {result.Downloaded} новых файлов, пропущено {result.Skipped} существующих.", DateTimeOffset.Now));
-            StatusText = $"Ресурсы готовы. Новых файлов: {result.Downloaded}; уже было: {result.Skipped}.";
+            StatusText = "Загрузка ресурсов...";
+            var result = await _assetsDownloader.DownloadAsync(message => Application.Current.Dispatcher.Invoke(() => StatusText = message));
+            StatusText = $"Загрузка завершена: новых {result.Downloaded}, пропущено {result.Skipped}, ошибок {result.Failed}.";
+            AddEvent(result.Failed > 0 ? DraftEventKind.Error : DraftEventKind.Resource, "assets", StatusText);
+            _logger.LogInformation("{Summary}", StatusText);
+            UpdateResourceSummary();
         }
         catch (Exception ex)
         {
             StatusText = $"Ошибка загрузки ресурсов: {ex.Message}";
-            Events.Insert(0, new DraftEvent(Events.Count + 1, 0, DraftEventKind.Error,
-                "download", StatusText, DateTimeOffset.Now));
+            AddEvent(DraftEventKind.Error, "download", StatusText);
+            _logger.LogError(ex, "Загрузка ресурсов завершилась ошибкой");
         }
-        finally
+        finally { IsBusy = false; }
+    }
+
+    [RelayCommand] private void ClearEvents() => Events.Clear();
+
+    public void UpdateResourceSummary()
+    {
+        try
         {
-            IsBusy = false;
+            var info = DotaAssetsDownloader.GetStorageInfo();
+            ResourceSummary = $"Ресурсы: {info.FileCount:N0} файлов · {FormatBytes(info.TotalBytes)}";
+            _logger.LogInformation("Локальные ресурсы: файлов {Count}, размер {Bytes} байт", info.FileCount, info.TotalBytes);
+        }
+        catch (Exception ex)
+        {
+            ResourceSummary = "Ресурсы: не удалось прочитать каталог";
+            _logger.LogWarning(ex, "Не удалось подсчитать локальные ресурсы");
         }
     }
 
-    [RelayCommand]
-    private void ClearEvents() => Events.Clear();
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        >= 1_073_741_824 => $"{bytes / 1_073_741_824d:F2} ГБ",
+        >= 1_048_576 => $"{bytes / 1_048_576d:F1} МБ",
+        >= 1_024 => $"{bytes / 1_024d:F1} КБ",
+        _ => $"{bytes} Б"
+    };
+
+    private void AddEvent(DraftEventKind kind, string source, string message) =>
+        Events.Insert(0, new DraftEvent(Events.Count + 1, 0, kind, source, message, DateTimeOffset.Now));
 }
