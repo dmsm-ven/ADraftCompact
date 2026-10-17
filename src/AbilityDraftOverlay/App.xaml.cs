@@ -43,6 +43,7 @@ public partial class App : Application
                 services.AddSingleton<DotaAssetsDownloader>();
                 services.AddSingleton<IconIndex>();
                 services.AddSingleton<DraftLayoutProvider>();
+                services.AddSingleton<HeroNameReader>();
                 services.AddSingleton<DraftStateTracker>();
                 services.AddSingleton<ScreenshotRecognitionService>();
                 services.AddSingleton<MainViewModel>();

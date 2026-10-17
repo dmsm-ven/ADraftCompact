@@ -8,6 +8,8 @@ using AbilityDraftOverlay.Models;
 
 namespace AbilityDraftOverlay.Services;
 
+public readonly record struct HeroName(string Id, string Name);
+
 public readonly record struct SearchHit(string? Id, float Score, string? RunnerUpId, float RunnerUpScore);
 
 /// <summary>Descriptors of all icons of one kind. Several rows may share an id (modern/legacy variants).</summary>
@@ -84,6 +86,8 @@ public sealed class IconIndex
     public IconIndex(ILogger<IconIndex> logger) => _logger = logger;
 
     public IconBank Heroes { get; private set; } = IconBank.Empty;
+    /// <summary>All heroes from the downloaded OpenDota reference: short id ("snapfire") and display name ("Snapfire").</summary>
+    public IReadOnlyList<HeroName> HeroCatalog { get; private set; } = Array.Empty<HeroName>();
     public IconBank Abilities { get; private set; } = IconBank.Empty;
     public bool IsLoaded { get; private set; }
 
@@ -335,5 +339,6 @@ public sealed class IconIndex
         }
         _heroNames = heroNames;
         _abilityNames = abilityNames;
+        HeroCatalog = heroNames.Select(pair => new HeroName(pair.Key, pair.Value)).ToArray();
     }
 }

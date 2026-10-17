@@ -19,12 +19,15 @@ public sealed class ScreenshotRecognitionService
 {
     private readonly IconIndex _index;
     private readonly DraftLayoutProvider _layouts;
+    private readonly HeroNameReader _heroNames;
     private readonly ILogger<ScreenshotRecognitionService> _logger;
 
-    public ScreenshotRecognitionService(IconIndex index, DraftLayoutProvider layouts, ILogger<ScreenshotRecognitionService> logger)
+    public ScreenshotRecognitionService(IconIndex index, DraftLayoutProvider layouts, HeroNameReader heroNames,
+        ILogger<ScreenshotRecognitionService> logger)
     {
         _index = index;
         _layouts = layouts;
+        _heroNames = heroNames;
         _logger = logger;
     }
 
@@ -47,8 +50,23 @@ public sealed class ScreenshotRecognitionService
 
         var placements = layout.Expand(screenshot.Width, screenshot.Height);
         var results = new SlotResult[placements.Count];
-        Parallel.For(0, placements.Count, new ParallelOptions { CancellationToken = cancellationToken },
-            i => results[i] = RecognizeSlot(screenshot, placements[i], layout.Matching));
+
+        // The hero card art is animated, so heroes are read by their name line (OCR); images remain a fallback.
+        var heroSource = ResolveHeroSource(layout.Matching);
+        var useOcr = heroSource == "ocr";
+        Parallel.For(0, placements.Count, new ParallelOptions { CancellationToken = cancellationToken }, i =>
+        {
+            if (useOcr && placements[i].Type == SlotType.Hero && placements[i].NameRoi is not null) return;
+            results[i] = RecognizeSlot(screenshot, placements[i], layout.Matching);
+        });
+
+        if (useOcr)
+            for (var i = 0; i < placements.Count; i++)
+            {
+                if (placements[i].Type != SlotType.Hero || placements[i].NameRoi is null) continue;
+                cancellationToken.ThrowIfCancellationRequested();
+                results[i] = RecognizeHeroByName(screenshot, placements[i], layout.Matching);
+            }
 
         var debugPath = TrySaveDebugImage(screenshot, results);
         total.Stop();
@@ -58,7 +76,37 @@ public sealed class ScreenshotRecognitionService
             results.Count(r => r.State == SlotState.Recognized), results.Count(r => r.State == SlotState.Uncertain),
             results.Count(r => r.State == SlotState.Empty), (long)total.Elapsed.TotalMilliseconds, (long)indexTime.TotalMilliseconds);
 
-        return new DraftSnapshot(results, total.Elapsed, indexTime, layout.Calibrated, debugPath);
+        return new DraftSnapshot(results, total.Elapsed, indexTime, layout.Calibrated, debugPath, heroSource);
+    }
+
+    private string ResolveHeroSource(MatchingOptions options)
+    {
+        var wanted = options.HeroSource.Trim().ToLowerInvariant();
+        if (wanted == "image") return "image";
+        if (_heroNames.IsAvailable(options.OcrLanguage)) return "ocr";
+        if (wanted == "ocr")
+            throw new InvalidOperationException($"OCR для языка {options.OcrLanguage} недоступен. Установите язык в Windows (Параметры → Время и язык → Язык и регион → Добавить язык → English (United States)) или поставьте heroSource: \"image\" в раскладке.");
+        _logger.LogWarning("OCR недоступен, герои определяются по картинкам (ненадёжно: арт героя анимирован)");
+        return "image";
+    }
+
+    private SlotResult RecognizeHeroByName(Mat screenshot, SlotPlacement slot, MatchingOptions options)
+    {
+        var band = slot.NameRoi!.Value;
+        var fits = band.X >= 0 && band.Y >= 0 && band.Right <= screenshot.Width && band.Bottom <= screenshot.Height
+                   && band.Width >= 8 && band.Height >= 8;
+        if (!fits) return new SlotResult(slot, SlotState.OutOfBounds, null, null, 0, 0, null);
+
+        var lines = _heroNames.ReadLines(screenshot, band, options.OcrLanguage);
+        var raw = string.Join(" | ", lines);
+        var match = HeroNameMatcher.Resolve(lines, _index.HeroCatalog, options.HeroNameMinScore);
+
+        if (match.IsNoHero) return new SlotResult(slot, SlotState.Empty, null, null, match.Score, match.Margin, null, raw);
+        if (match.Hero is not { } hero) return new SlotResult(slot, SlotState.Empty, null, null, 0, 0, null, raw);
+
+        var state = match.Score >= options.HeroNameMinScore && match.Margin >= options.HeroNameMinMargin
+            ? SlotState.Recognized : SlotState.Uncertain;
+        return new SlotResult(slot, state, hero.Id, hero.Name, match.Score, match.Margin, match.RunnerUp?.Id, raw);
     }
 
     private SlotResult RecognizeSlot(Mat screenshot, SlotPlacement slot, MatchingOptions options)
@@ -150,7 +198,11 @@ public sealed class ScreenshotRecognitionService
                     _ => new CvScalar(60, 60, 255)
                 };
                 Cv2.Rectangle(canvas, new CvRect(roi.X, roi.Y, roi.Width, roi.Height), color, 1);
-                var label = r.State is SlotState.Recognized or SlotState.Uncertain
+                if (r.Slot.NameRoi is { } name)
+                    Cv2.Rectangle(canvas, new CvRect(name.X, name.Y, name.Width, name.Height), color, 1);
+                var label = r.Slot.Type == SlotType.Hero && r.RawText is not null
+                    ? $"P{r.Slot.Player}H '{r.RawText}' -> {r.EntityId ?? r.State.ToString()} {r.Score:0.00}"
+                    : r.State is SlotState.Recognized or SlotState.Uncertain
                     ? $"P{r.Slot.Player}{(r.Slot.Type == SlotType.Hero ? "H" : "A" + r.Slot.Index)} {r.EntityId} {r.Score:0.00}"
                     : $"P{r.Slot.Player}{(r.Slot.Type == SlotType.Hero ? "H" : "A" + r.Slot.Index)} {r.State}";
                 Cv2.PutText(canvas, label, new CvPoint(roi.X, Math.Max(10, roi.Y - 2)), HersheyFonts.HersheySimplex, 0.3, color, 1);

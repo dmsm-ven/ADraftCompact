@@ -75,7 +75,7 @@ public partial class MainViewModel : ObservableObject
                     "Раскладка драфта не откалибрована (calibrated=false): координаты слотов примерные. " +
                     $"Рамки слотов нарисованы на {snapshot.DebugImagePath ?? "отладочном изображении"}.");
 
-            StatusText = $"Готово за {snapshot.Elapsed.TotalMilliseconds:F0} мс: распознано {recognized}, неуверенно {uncertain}, пусто {empty}; новых выборов {picks.Count}.";
+            StatusText = $"Готово за {snapshot.Elapsed.TotalMilliseconds:F0} мс: распознано {recognized}, неуверенно {uncertain}, пусто {empty}; новых выборов {picks.Count}; герои: {(snapshot.HeroSource == "ocr" ? "по имени (OCR)" : "по картинкам")}.";
             AddEvent(DraftEventKind.Resource, "recognition-summary", StatusText);
             _logger.LogInformation("{StatusText}", StatusText);
         }

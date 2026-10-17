@@ -19,6 +19,8 @@ public sealed class TeamColumn
     public int X { get; set; }
     public int Y { get; set; }
     public SlotRect? Hero { get; set; }
+    /// <summary>Line with the hero name, relative to the cell origin.</summary>
+    public SlotRect? HeroName { get; set; }
     public List<SlotRect>? Abilities { get; set; }
 }
 
@@ -36,6 +38,18 @@ public sealed class MatchingOptions
     public double HeroEmptyMaxStdDev { get; set; } = 40.0;
     /// <summary>Pixels trimmed from every side of a slot before matching (frames, borders, glow).</summary>
     public int Inset { get; set; } = 3;
+
+    /// <summary>
+    /// How heroes are recognized. "ocr": read the name line (Windows OCR) - the card art is animated, so it cannot be matched
+    /// against static images; "image": compare the art with downloaded portraits (unreliable); "auto": ocr when available, else image.
+    /// </summary>
+    public string HeroSource { get; set; } = "auto";
+    /// <summary>OCR language tag. The hero names are matched against English names, so the game must run in English.</summary>
+    public string OcrLanguage { get; set; } = "en-US";
+    /// <summary>Minimal similarity (0..1) between the OCR text and a hero name.</summary>
+    public double HeroNameMinScore { get; set; } = 0.70;
+    /// <summary>Minimal gap between the best and the second best hero name.</summary>
+    public double HeroNameMinMargin { get; set; } = 0.12;
     /// <summary>The slot is also tried shifted by +-ShiftPx to tolerate small layout inaccuracies.</summary>
     public int ShiftPx { get; set; } = 2;
 }
@@ -54,6 +68,7 @@ public sealed class DraftLayout
     public int RowPitch { get; set; }
     public List<TeamColumn> Columns { get; set; } = new();
     public SlotRect Hero { get; set; } = new();
+    public SlotRect? HeroName { get; set; }
     public List<SlotRect> Abilities { get; set; } = new();
     public MatchingOptions Matching { get; set; } = new();
 
@@ -82,8 +97,10 @@ public sealed class DraftLayout
                 var originX = column.X;
                 var originY = column.Y + row * RowPitch;
 
+                var nameRect = column.HeroName ?? HeroName;
                 result.Add(new SlotPlacement(player, column.Team, SlotType.Hero, 0,
-                    Scale(column.Hero ?? Hero, originX, originY, sx, sy)));
+                    Scale(column.Hero ?? Hero, originX, originY, sx, sy),
+                    nameRect is null ? null : Scale(nameRect, originX, originY, sx, sy)));
 
                 var abilities = column.Abilities ?? Abilities;
                 for (var i = 0; i < abilities.Count; i++)

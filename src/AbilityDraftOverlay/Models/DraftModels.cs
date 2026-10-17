@@ -20,8 +20,12 @@ public readonly record struct PixelRect(int X, int Y, int Width, int Height)
     public int Bottom => Y + Height;
 }
 
-/// <summary>One cell of the draft screen: which player it belongs to and where it is on the screenshot.</summary>
-public sealed record SlotPlacement(int Player, int Team, SlotType Type, int Index, PixelRect Roi);
+/// <summary>
+/// One cell of the draft screen: which player it belongs to and where it is on the screenshot.
+/// <paramref name="Roi"/> is the icon/art area; for heroes <paramref name="NameRoi"/> is the line with the hero name
+/// (the card art is animated, the name text is not).
+/// </summary>
+public sealed record SlotPlacement(int Player, int Team, SlotType Type, int Index, PixelRect Roi, PixelRect? NameRoi = null);
 
 public sealed record SlotResult(
     SlotPlacement Slot,
@@ -30,14 +34,16 @@ public sealed record SlotResult(
     string? DisplayName,
     double Score,
     double Margin,
-    string? RunnerUpId);
+    string? RunnerUpId,
+    string? RawText = null);
 
 public sealed record DraftSnapshot(
     IReadOnlyList<SlotResult> Slots,
     TimeSpan Elapsed,
     TimeSpan IndexLoadTime,
     bool LayoutCalibrated,
-    string? DebugImagePath);
+    string? DebugImagePath,
+    string HeroSource = "image");
 
 /// <summary>A slot that became filled between two frames: "player N took hero/ability X".</summary>
 public sealed record DraftPick(
