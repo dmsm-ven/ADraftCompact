@@ -78,12 +78,8 @@ public sealed class ScreenshotRecognitionService
         var baseX = roi.X + inset;
         var baseY = roi.Y + inset;
 
-        using (var center = new Mat(screenshot, new CvRect(baseX, baseY, width, height)))
-        {
-            Cv2.MeanStdDev(center, out _, out var std);
-            if (Math.Max(std.Val0, Math.Max(std.Val1, std.Val2)) < options.EmptyStdDev)
-                return new SlotResult(slot, SlotState.Empty, null, null, 0, 0, null);
-        }
+        if (IsEmpty(screenshot, roi, slot.Type, options))
+            return new SlotResult(slot, SlotState.Empty, null, null, 0, 0, null);
 
         var bank = slot.Type == SlotType.Hero ? _index.Heroes : _index.Abilities;
         var best = new SearchHit(null, float.MinValue, null, -1f);
@@ -102,6 +98,29 @@ public sealed class ScreenshotRecognitionService
         var margin = best.Score - runnerUp;
         var state = best.Score >= options.MinScore && margin >= options.MinMargin ? SlotState.Recognized : SlotState.Uncertain;
         return new SlotResult(slot, state, best.Id, _index.GetDisplayName(slot.Type, best.Id), best.Score, margin, best.RunnerUpId);
+    }
+
+    /// <summary>
+    /// Emptiness is judged on the slot center only. An empty ability slot is an almost black square
+    /// (mean brightness ~0-15 vs ~65+ for any icon on the reference screenshot); the "NO HERO" silhouette is
+    /// a flat low-contrast picture (std-dev ~15-30 vs ~50+ for real hero art).
+    /// </summary>
+    private static bool IsEmpty(Mat screenshot, PixelRect roi, SlotType type, MatchingOptions options)
+    {
+        var trim = Math.Max(0, options.EmptyInset);
+        var width = roi.Width - 2 * trim;
+        var height = roi.Height - 2 * trim;
+        if (width < 4 || height < 4) return false;
+
+        using var center = new Mat(screenshot, new CvRect(roi.X + trim, roi.Y + trim, width, height));
+        if (type == SlotType.Hero)
+        {
+            Cv2.MeanStdDev(center, out _, out var std);
+            return Math.Max(std.Val0, Math.Max(std.Val1, std.Val2)) < options.HeroEmptyMaxStdDev;
+        }
+
+        var mean = Cv2.Mean(center);
+        return (mean.Val0 + mean.Val1 + mean.Val2) / 3.0 < options.AbilityEmptyMaxMean;
     }
 
     private static IEnumerable<(int Dx, int Dy)> ShiftOffsets(int shift)

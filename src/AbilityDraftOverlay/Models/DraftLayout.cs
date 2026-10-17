@@ -28,10 +28,14 @@ public sealed class MatchingOptions
     public double MinScore { get; set; } = 0.55;
     /// <summary>Minimal gap between the best and the best *different* candidate.</summary>
     public double MinMargin { get; set; } = 0.10;
-    /// <summary>Slots whose per-channel standard deviation is below this are treated as empty.</summary>
-    public double EmptyStdDev { get; set; } = 8.0;
-    /// <summary>Pixels trimmed from every side of a slot (frames, borders, glow).</summary>
-    public int Inset { get; set; } = 2;
+    /// <summary>Pixels trimmed from every side of the slot before the emptiness test (skips frame and rounded corners).</summary>
+    public int EmptyInset { get; set; } = 6;
+    /// <summary>An ability slot is empty when its center is almost black: mean brightness (0..255) below this.</summary>
+    public double AbilityEmptyMaxMean { get; set; } = 35.0;
+    /// <summary>The hero area is empty ("NO HERO" silhouette) when its per-channel std-dev is below this.</summary>
+    public double HeroEmptyMaxStdDev { get; set; } = 40.0;
+    /// <summary>Pixels trimmed from every side of a slot before matching (frames, borders, glow).</summary>
+    public int Inset { get; set; } = 3;
     /// <summary>The slot is also tried shifted by +-ShiftPx to tolerate small layout inaccuracies.</summary>
     public int ShiftPx { get; set; } = 2;
 }
