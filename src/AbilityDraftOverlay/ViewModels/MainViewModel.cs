@@ -14,6 +14,8 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly DotaAssetsDownloader _assetsDownloader;
     private readonly ScreenshotRecognitionService _recognizer;
+    private readonly DraftStateTracker _tracker;
+    private readonly IconIndex _iconIndex;
     private readonly ILogger<MainViewModel> _logger;
 
     [ObservableProperty] private string statusText = "Готово.";
@@ -23,10 +25,13 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<DraftEvent> Events { get; } = new();
     public bool CanRecognize => !IsBusy && !string.IsNullOrWhiteSpace(CurrentFramePath);
 
-    public MainViewModel(DotaAssetsDownloader assetsDownloader, ScreenshotRecognitionService recognizer, ILogger<MainViewModel> logger)
+    public MainViewModel(DotaAssetsDownloader assetsDownloader, ScreenshotRecognitionService recognizer,
+        DraftStateTracker tracker, IconIndex iconIndex, ILogger<MainViewModel> logger)
     {
         _assetsDownloader = assetsDownloader;
         _recognizer = recognizer;
+        _tracker = tracker;
+        _iconIndex = iconIndex;
         _logger = logger;
         UpdateResourceSummary();
     }
@@ -46,24 +51,32 @@ public partial class MainViewModel : ObservableObject
     {
         if (IsBusy || string.IsNullOrWhiteSpace(CurrentFramePath)) return;
         IsBusy = true;
-        AddEvent(DraftEventKind.Resource, "recognition", "Начато распознавание скриншота по базе иконок.");
+        AddEvent(DraftEventKind.Resource, "recognition", "Начато распознавание скриншота по слотам драфта.");
         try
         {
             StatusText = "Распознавание скриншота...";
-            var matches = await _recognizer.RecognizeAsync(CurrentFramePath);
-            if (matches.Count == 0)
-            {
-                StatusText = "Совпадений не найдено. Попробуйте скриншот с более крупными иконками.";
-                AddEvent(DraftEventKind.Error, "recognition", StatusText);
-            }
-            else
-            {
-                foreach (var match in matches.OrderBy(m => m.Y).ThenBy(m => m.X))
-                    AddEvent(match.Category == "Герой" ? DraftEventKind.Hero : DraftEventKind.Ability,
-                        match.Name, $"{match.Category}: {match.Name} · совпадение {match.Confidence:P0} · X:{match.X}, Y:{match.Y}");
-                StatusText = $"Распознавание завершено: найдено совпадений {matches.Count}.";
-                AddEvent(DraftEventKind.Resource, "recognition-summary", StatusText);
-            }
+            var snapshot = await _recognizer.RecognizeAsync(CurrentFramePath);
+            var picks = _tracker.Update(snapshot, DateTimeOffset.Now);
+
+            var recognized = snapshot.Slots.Count(s => s.State == SlotState.Recognized);
+            var uncertain = snapshot.Slots.Count(s => s.State == SlotState.Uncertain);
+            var empty = snapshot.Slots.Count(s => s.State == SlotState.Empty);
+
+            // Events are inserted at the top, so add the details first and the summary last.
+            foreach (var pick in picks)
+                AddEvent(pick.Type == SlotType.Hero ? DraftEventKind.Hero : DraftEventKind.Ability, pick.EntityId,
+                    $"Игрок {pick.Player}: {(pick.Type == SlotType.Hero ? "герой" : $"способность {pick.SlotIndex + 1}")} — {pick.DisplayName} ({pick.Score:0.00})",
+                    pick.Player);
+
+            AddEvent(DraftEventKind.Frame, "report", DraftReportFormatter.Format(snapshot));
+
+            if (!snapshot.LayoutCalibrated)
+                AddEvent(DraftEventKind.Error, "layout",
+                    "Раскладка драфта не откалибрована (calibrated=false): координаты слотов примерные. " +
+                    $"Рамки слотов нарисованы на {snapshot.DebugImagePath ?? "отладочном изображении"}.");
+
+            StatusText = $"Готово за {snapshot.Elapsed.TotalMilliseconds:F0} мс: распознано {recognized}, неуверенно {uncertain}, пусто {empty}; новых выборов {picks.Count}.";
+            AddEvent(DraftEventKind.Resource, "recognition-summary", StatusText);
             _logger.LogInformation("{StatusText}", StatusText);
         }
         catch (Exception ex)
@@ -105,6 +118,7 @@ public partial class MainViewModel : ObservableObject
             StatusText = $"Загрузка завершена: новых {result.Downloaded}, пропущено {result.Skipped}, ошибок {result.Failed}.";
             AddEvent(result.Failed > 0 ? DraftEventKind.Error : DraftEventKind.Resource, "assets", StatusText);
             _logger.LogInformation("{Summary}", StatusText);
+            _iconIndex.Invalidate(); // new icons -> rebuild the descriptor index on next recognition
             UpdateResourceSummary();
         }
         catch (Exception ex)
@@ -116,7 +130,12 @@ public partial class MainViewModel : ObservableObject
         finally { IsBusy = false; }
     }
 
-    [RelayCommand] private void ClearEvents() => Events.Clear();
+    [RelayCommand]
+    private void ClearEvents()
+    {
+        Events.Clear();
+        _tracker.Reset(); // start a new draft: previously seen picks are forgotten
+    }
 
     public void UpdateResourceSummary()
     {
@@ -141,6 +160,6 @@ public partial class MainViewModel : ObservableObject
         _ => $"{bytes} Б"
     };
 
-    private void AddEvent(DraftEventKind kind, string source, string message) =>
-        Events.Insert(0, new DraftEvent(Events.Count + 1, 0, kind, source, message, DateTimeOffset.Now));
+    private void AddEvent(DraftEventKind kind, string source, string message, int player = 0) =>
+        Events.Insert(0, new DraftEvent(Events.Count + 1, player, kind, source, message, DateTimeOffset.Now));
 }

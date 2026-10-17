@@ -7,6 +7,9 @@
     <AssemblyName>AbilityDraftOverlay</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <None Update="Layouts\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Microsoft.Data.Sqlite" />

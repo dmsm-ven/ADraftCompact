@@ -41,6 +41,9 @@ public partial class App : Application
             .ConfigureServices((_, services) =>
             {
                 services.AddSingleton<DotaAssetsDownloader>();
+                services.AddSingleton<IconIndex>();
+                services.AddSingleton<DraftLayoutProvider>();
+                services.AddSingleton<DraftStateTracker>();
                 services.AddSingleton<ScreenshotRecognitionService>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
