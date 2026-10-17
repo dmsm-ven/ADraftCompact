@@ -1,9 +1,10 @@
-﻿using AbilityDraftOverlay.Services;
+using System.Threading;
+using System.Windows;
+using AbilityDraftOverlay.Services;
 using AbilityDraftOverlay.ViewModels;
 using AbilityDraftOverlay.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System.Windows;
 
 namespace AbilityDraftOverlay;
 
@@ -22,7 +23,7 @@ public partial class App : Application
         {
             _singleInstanceMutex.Dispose();
             _singleInstanceMutex = null;
-            MessageBox.Show("Ability Draft Overlay is already running.", "Ability Draft Overlay",
+            MessageBox.Show("Ability Draft Overlay уже запущен.", "Ability Draft Overlay",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
@@ -31,11 +32,9 @@ public partial class App : Application
         _host = Host.CreateDefaultBuilder()
             .ConfigureServices((_, services) =>
             {
-                services.AddSingleton<ISettingsService, JsonSettingsService>();
+                services.AddSingleton<DotaAssetsDownloader>();
                 services.AddSingleton<MainViewModel>();
-                services.AddSingleton<SettingsViewModel>();
                 services.AddSingleton<MainWindow>();
-                services.AddTransient<SettingsWindow>();
             })
             .Build();
     }

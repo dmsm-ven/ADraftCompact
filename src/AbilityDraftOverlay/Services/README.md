@@ -1,5 +1,6 @@
-Planned services:
-- `ScreenCaptureService` — capture the desktop/game window.
-- `ImageRecognitionService` — deterministic image matching (no AI/OCR).
-- `DraftTrackingService` — detect confirmed slot changes and build ordered events.
-- `OverlayWindowService` — show/hide a transparent topmost window.
+# Services
+
+- `DotaAssetsDownloader` скачивает изображения героев и способностей, а также JSON-справочники OpenDota.
+- Ресурсы сохраняются в `%LocalAppData%\AbilityDraftOverlay\Assets`.
+- Загрузчик пропускает уже существующие файлы и может использоваться повторно для дозагрузки.
+- Сетевые источники: OpenDota constants API и публичный Steam CDN. При ошибке сети загрузку можно запустить повторно.

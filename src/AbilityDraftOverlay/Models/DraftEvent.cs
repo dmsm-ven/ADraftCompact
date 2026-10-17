@@ -2,8 +2,11 @@ namespace AbilityDraftOverlay.Models;
 
 public enum DraftEventKind
 {
+    Frame,
     Ability,
-    Hero
+    Hero,
+    Resource,
+    Error
 }
 
 public sealed record DraftEvent(
