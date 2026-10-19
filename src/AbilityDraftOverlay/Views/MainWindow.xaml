@@ -65,6 +65,14 @@
                 DockPanel.Dock="Right"
                 FontSize="18"
                 ToolTip="Загрузить ресурсы Dota 2" />
+            <Button
+                Margin="8,0,0,0"
+                Padding="14,8"
+                Command="{Binding ToggleTrackingCommand}"
+                Content="{Binding TrackingButtonText}"
+                DockPanel.Dock="Right"
+                FontSize="14"
+                ToolTip="Раз в минуту снимать окно Dota 2, находить доску Ability Draft и вести сессию" />
             <StackPanel>
                 <TextBlock
                     FontSize="25"
@@ -73,7 +81,12 @@
                 <TextBlock
                     Margin="0,5,0,0"
                     Foreground="#FFB3BAC7"
-                    Text="Тестирование кадров и загрузка ресурсов Dota 2 · без OCR и AI" />
+                    Text="Тестирование кадров и загрузка ресурсов Dota 2 · герои по имени (OCR Windows), без AI" />
+                <TextBlock
+                    Margin="0,3,0,0"
+                    Foreground="#FF9EA9BA"
+                    FontSize="12"
+                    Text="{Binding SessionText}" />
             </StackPanel>
         </DockPanel>
 

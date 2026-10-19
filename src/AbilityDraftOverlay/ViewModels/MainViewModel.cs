@@ -14,7 +14,9 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly DotaAssetsDownloader _assetsDownloader;
     private readonly ScreenshotRecognitionService _recognizer;
-    private readonly DraftStateTracker _tracker;
+    private readonly DraftSessionTracker _tracker;
+    private readonly AutoTrackingService _autoTracking;
+    private string? _lastTickStatus;
     private readonly IconIndex _iconIndex;
     private readonly ILogger<MainViewModel> _logger;
 
@@ -22,15 +24,20 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string? currentFramePath;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string resourceSummary = "Ресурсы: проверка...";
+    [ObservableProperty] private bool isTracking;
+    [ObservableProperty] private string sessionText = "Сессия: нет";
     public ObservableCollection<DraftEvent> Events { get; } = new();
-    public bool CanRecognize => !IsBusy && !string.IsNullOrWhiteSpace(CurrentFramePath);
+    public bool CanRecognize => !IsBusy && !IsTracking && !string.IsNullOrWhiteSpace(CurrentFramePath);
+    public string TrackingButtonText => IsTracking ? "■ Остановить автоотслеживание" : "▶ Запустить автоотслеживание";
 
     public MainViewModel(DotaAssetsDownloader assetsDownloader, ScreenshotRecognitionService recognizer,
-        DraftStateTracker tracker, IconIndex iconIndex, ILogger<MainViewModel> logger)
+        DraftSessionTracker tracker, AutoTrackingService autoTracking, IconIndex iconIndex, ILogger<MainViewModel> logger)
     {
         _assetsDownloader = assetsDownloader;
         _recognizer = recognizer;
         _tracker = tracker;
+        _autoTracking = autoTracking;
+        _autoTracking.Ticked += OnTick;
         _iconIndex = iconIndex;
         _logger = logger;
         UpdateResourceSummary();
@@ -38,6 +45,11 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnCurrentFramePathChanged(string? value) => OnPropertyChanged(nameof(CanRecognize));
     partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(CanRecognize));
+    partial void OnIsTrackingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanRecognize));
+        OnPropertyChanged(nameof(TrackingButtonText));
+    }
 
     public void SetFrame(string path)
     {
@@ -56,27 +68,16 @@ public partial class MainViewModel : ObservableObject
         {
             StatusText = "Распознавание скриншота...";
             var snapshot = await _recognizer.RecognizeAsync(CurrentFramePath);
-            var picks = _tracker.Update(snapshot, DateTimeOffset.Now);
+            var update = _tracker.Process(snapshot, DateTimeOffset.Now);
+            ShowUpdate(snapshot, update);
 
             var recognized = snapshot.Slots.Count(s => s.State == SlotState.Recognized);
             var uncertain = snapshot.Slots.Count(s => s.State == SlotState.Uncertain);
             var empty = snapshot.Slots.Count(s => s.State == SlotState.Empty);
-
-            // Events are inserted at the top, so add the details first and the summary last.
-            foreach (var pick in picks)
-                AddEvent(pick.Type == SlotType.Hero ? DraftEventKind.Hero : DraftEventKind.Ability, pick.EntityId,
-                    $"Игрок {pick.Player}: {(pick.Type == SlotType.Hero ? "герой" : $"способность {pick.SlotIndex + 1}")} — {pick.DisplayName} ({pick.Score:0.00})",
-                    pick.Player);
-
-            AddEvent(DraftEventKind.Frame, "report", DraftReportFormatter.Format(snapshot));
-
-            if (!snapshot.LayoutCalibrated)
-                AddEvent(DraftEventKind.Error, "layout",
-                    "Раскладка драфта не откалибрована (calibrated=false): координаты слотов примерные. " +
-                    $"Рамки слотов нарисованы на {snapshot.DebugImagePath ?? "отладочном изображении"}.");
-
-            StatusText = $"Готово за {snapshot.Elapsed.TotalMilliseconds:F0} мс: распознано {recognized}, неуверенно {uncertain}, пусто {empty}; новых выборов {picks.Count}; герои: {(snapshot.HeroSource == "ocr" ? "по имени (OCR)" : "по картинкам")}.";
-            AddEvent(DraftEventKind.Resource, "recognition-summary", StatusText);
+            StatusText = snapshot.BoardDetected
+                ? $"Готово за {snapshot.Elapsed.TotalMilliseconds:F0} мс: распознано {recognized}, неуверенно {uncertain}, пусто {empty}; новых выборов {update.NewPicks.Count}; герои: {(snapshot.HeroSource == "ocr" ? "по имени (OCR)" : "по картинкам")}."
+                : "На кадре не найдена доска Ability Draft.";
+            AddEvent(snapshot.BoardDetected ? DraftEventKind.Resource : DraftEventKind.Error, "recognition-summary", StatusText);
             _logger.LogInformation("{StatusText}", StatusText);
         }
         catch (Exception ex)
@@ -131,10 +132,74 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task ToggleTrackingAsync()
+    {
+        if (IsTracking)
+        {
+            await _autoTracking.StopAsync();
+            IsTracking = false;
+            StatusText = "Автоотслеживание остановлено.";
+            AddEvent(DraftEventKind.Resource, "tracking", StatusText);
+            return;
+        }
+
+        try
+        {
+            _lastTickStatus = null;
+            await _autoTracking.StartAsync();
+            IsTracking = true;
+            StatusText = "Автоотслеживание запущено: первый снимок делается сразу, дальше раз в минуту.";
+            AddEvent(DraftEventKind.Resource, "tracking", StatusText);
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Не удалось запустить автоотслеживание: {ex.Message}";
+            AddEvent(DraftEventKind.Error, "tracking", StatusText);
+            _logger.LogError(ex, "Не удалось запустить автоотслеживание");
+        }
+    }
+
+    /// <summary>Called on a worker thread after every automatic capture.</summary>
+    private void OnTick(TrackingTick tick) => Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+    {
+        ShowUpdate(tick.Snapshot, tick.Update);
+        StatusText = $"{tick.At:HH:mm:ss} · {tick.Status}";
+        // Identical repeated messages ("game window not found" every minute) are shown once.
+        if (tick.Status != _lastTickStatus && tick.Update is null)
+            AddEvent(tick.IsError ? DraftEventKind.Error : DraftEventKind.Resource, "tracking", tick.Status);
+        _lastTickStatus = tick.Status;
+    }));
+
+    /// <summary>Puts the result of one recognized frame (manual or automatic) into the event list and the session line.</summary>
+    private void ShowUpdate(DraftSnapshot? snapshot, SessionUpdate? update)
+    {
+        if (update is null) return;
+
+        if (update.EndedSession is { } ended)
+            AddEvent(DraftEventKind.Resource, "session",
+                $"Сессия {ended.Id} завершена: снимков {ended.Captures}, выборов {ended.TotalPicks}. Файл: {SessionStore.PathFor(ended)}");
+        if (update is { Started: true, Session: { } started })
+            AddEvent(DraftEventKind.Resource, "session", $"Новая сессия {started.Id} · {started.StartedAt:dd.MM.yyyy HH:mm:ss}");
+
+        foreach (var pick in update.NewPicks)
+            AddEvent(pick.Type == SlotType.Hero ? DraftEventKind.Hero : DraftEventKind.Ability, pick.EntityId,
+                $"Игрок {pick.Player}: {pick.PickOrder}-й выбор — {(pick.Type == SlotType.Hero ? "герой" : "способность")} {pick.DisplayName}" +
+                $"{(pick.OrderUncertain ? " (порядок приблизительный)" : "")} · снимок №{pick.Capture}", pick.Player);
+
+        if (snapshot is { BoardDetected: true } && (update.NewPicks.Count > 0 || update.Started))
+            AddEvent(DraftEventKind.Frame, "report", DraftReportFormatter.Format(snapshot));
+
+        SessionText = update.Session is { } session
+            ? $"Сессия {session.Id} · с {session.StartedAt:dd.MM HH:mm:ss} · снимков {session.Captures} · выборов {session.TotalPicks}"
+            : "Сессия: нет";
+    }
+
+    [RelayCommand]
     private void ClearEvents()
     {
         Events.Clear();
-        _tracker.Reset(); // start a new draft: previously seen picks are forgotten
+        _tracker.EndSession(DateTimeOffset.Now, "Журнал очищен"); // the next recognized board starts a new session
+        SessionText = "Сессия: нет";
     }
 
     public void UpdateResourceSummary()

@@ -70,6 +70,7 @@
     "heroSource": "auto",
     "ocrLanguage": "en-US",     // клиент игры должен быть на английском
     "heroNameMinScore": 0.70,
-    "heroNameMinMargin": 0.12
+    "heroNameMinMargin": 0.12,
+    "boardMinCards": 8          // кадр считается доской драфта, если имя героя или NO HERO прочитано минимум на 8 из 10 карточек
   }
 }

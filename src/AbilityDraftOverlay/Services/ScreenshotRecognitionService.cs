@@ -37,30 +37,33 @@ public sealed class ScreenshotRecognitionService
     public DraftSnapshot Recognize(string screenshotPath, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(screenshotPath)) throw new FileNotFoundException("Скриншот не найден.", screenshotPath);
+        using var screenshot = Cv2.ImRead(screenshotPath, ImreadModes.Color);
+        if (screenshot.Empty()) throw new InvalidDataException("Не удалось прочитать скриншот как изображение.");
+        return Recognize(screenshot, screenshotPath, cancellationToken);
+    }
 
+    /// <summary>Recognizes an already captured BGR frame. The caller keeps ownership of the Mat.</summary>
+    public DraftSnapshot Recognize(Mat screenshot, string sourceLabel, CancellationToken cancellationToken = default)
+    {
         var total = Stopwatch.StartNew();
         _index.EnsureLoaded();
         var indexTime = total.Elapsed;
 
         var layout = _layouts.Load();
-        using var screenshot = Cv2.ImRead(screenshotPath, ImreadModes.Color);
-        if (screenshot.Empty()) throw new InvalidDataException("Не удалось прочитать скриншот как изображение.");
         if (screenshot.Width * 9 != screenshot.Height * 16)
-            _logger.LogWarning("Скриншот {W}x{H} не 16:9; координаты раскладки будут промасштабированы неточно", screenshot.Width, screenshot.Height);
+            _logger.LogWarning("Кадр {W}x{H} не 16:9; координаты раскладки будут промасштабированы неточно", screenshot.Width, screenshot.Height);
 
         var placements = layout.Expand(screenshot.Width, screenshot.Height);
-        var results = new SlotResult[placements.Count];
+        var results = new SlotResult?[placements.Count];
 
         // The hero card art is animated, so heroes are read by their name line (OCR); images remain a fallback.
         var heroSource = ResolveHeroSource(layout.Matching);
         var useOcr = heroSource == "ocr";
-        Parallel.For(0, placements.Count, new ParallelOptions { CancellationToken = cancellationToken }, i =>
-        {
-            if (useOcr && placements[i].Type == SlotType.Hero && placements[i].NameRoi is not null) return;
-            results[i] = RecognizeSlot(screenshot, placements[i], layout.Matching);
-        });
+        var boardDetected = true;
 
         if (useOcr)
+        {
+            // Names first: they also tell whether this frame is the draft board at all.
             for (var i = 0; i < placements.Count; i++)
             {
                 if (placements[i].Type != SlotType.Hero || placements[i].NameRoi is null) continue;
@@ -68,15 +71,34 @@ public sealed class ScreenshotRecognitionService
                 results[i] = RecognizeHeroByName(screenshot, placements[i], layout.Matching);
             }
 
-        var debugPath = TrySaveDebugImage(screenshot, results);
+            var cards = results.Count(r => r is not null && r.Score >= layout.Matching.HeroNameMinScore);
+            boardDetected = cards >= layout.Matching.BoardMinCards;
+            if (!boardDetected)
+            {
+                _logger.LogInformation("Кадр {Source}: доска Ability Draft не найдена (карточек с именем героя или NO HERO: {Cards} из {Min})",
+                    sourceLabel, cards, layout.Matching.BoardMinCards);
+                total.Stop();
+                return new DraftSnapshot(results.Where(r => r is not null).Select(r => r!).ToArray(), total.Elapsed, indexTime,
+                    layout.Calibrated, null, heroSource, BoardDetected: false);
+            }
+        }
+
+        Parallel.For(0, placements.Count, new ParallelOptions { CancellationToken = cancellationToken }, i =>
+        {
+            if (results[i] is not null) return; // heroes already read by name
+            results[i] = RecognizeSlot(screenshot, placements[i], layout.Matching);
+        });
+
+        var final = results.Select(r => r!).ToArray();
+        var debugPath = TrySaveDebugImage(screenshot, final);
         total.Stop();
 
-        _logger.LogInformation("Кадр {Path} ({W}x{H}): слотов {Slots}, распознано {Ok}, неуверенно {Unsure}, пусто {Empty}; всего {Total} мс (загрузка индекса {Index} мс)",
-            screenshotPath, screenshot.Width, screenshot.Height, results.Length,
-            results.Count(r => r.State == SlotState.Recognized), results.Count(r => r.State == SlotState.Uncertain),
-            results.Count(r => r.State == SlotState.Empty), (long)total.Elapsed.TotalMilliseconds, (long)indexTime.TotalMilliseconds);
+        _logger.LogInformation("Кадр {Source} ({W}x{H}): слотов {Slots}, распознано {Ok}, неуверенно {Unsure}, пусто {Empty}; всего {Total} мс (загрузка индекса {Index} мс)",
+            sourceLabel, screenshot.Width, screenshot.Height, final.Length,
+            final.Count(r => r.State == SlotState.Recognized), final.Count(r => r.State == SlotState.Uncertain),
+            final.Count(r => r.State == SlotState.Empty), (long)total.Elapsed.TotalMilliseconds, (long)indexTime.TotalMilliseconds);
 
-        return new DraftSnapshot(results, total.Elapsed, indexTime, layout.Calibrated, debugPath, heroSource);
+        return new DraftSnapshot(final, total.Elapsed, indexTime, layout.Calibrated, debugPath, heroSource, boardDetected);
     }
 
     private string ResolveHeroSource(MatchingOptions options)

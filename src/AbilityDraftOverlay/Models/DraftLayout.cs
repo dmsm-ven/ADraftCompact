@@ -50,6 +50,8 @@ public sealed class MatchingOptions
     public double HeroNameMinScore { get; set; } = 0.70;
     /// <summary>Minimal gap between the best and the second best hero name.</summary>
     public double HeroNameMinMargin { get; set; } = 0.12;
+    /// <summary>The frame is the draft board if at least this many of the 10 cards show a hero name or "NO HERO".</summary>
+    public int BoardMinCards { get; set; } = 8;
     /// <summary>The slot is also tried shifted by +-ShiftPx to tolerate small layout inaccuracies.</summary>
     public int ShiftPx { get; set; } = 2;
 }

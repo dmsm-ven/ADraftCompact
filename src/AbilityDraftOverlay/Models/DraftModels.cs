@@ -43,15 +43,6 @@ public sealed record DraftSnapshot(
     TimeSpan IndexLoadTime,
     bool LayoutCalibrated,
     string? DebugImagePath,
-    string HeroSource = "image");
-
-/// <summary>A slot that became filled between two frames: "player N took hero/ability X".</summary>
-public sealed record DraftPick(
-    int Step,
-    int Player,
-    SlotType Type,
-    int SlotIndex,
-    string EntityId,
-    string DisplayName,
-    double Score,
-    DateTimeOffset DetectedAt);
+    string HeroSource = "image",
+    /// <summary>False when the frame is not the Ability Draft board (other screen, loading, ...).</summary>
+    bool BoardDetected = true);

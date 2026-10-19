@@ -1,0 +1,143 @@
+using AbilityDraftOverlay.Models;
+using Microsoft.Extensions.Logging;
+
+namespace AbilityDraftOverlay.Services;
+
+/// <param name="Status">Short text for the status line.</param>
+/// <param name="Update">Null when no frame was recognized (game window missing, covered, ...).</param>
+public sealed record TrackingTick(DateTimeOffset At, string Status, DraftSnapshot? Snapshot, SessionUpdate? Update, bool IsError);
+
+/// <summary>
+/// Takes a screenshot of the game window every <see cref="AppSettings.CaptureIntervalSeconds"/> seconds
+/// (the first one immediately), recognizes it and feeds the draft session tracker.
+/// One minute is about one pass over the board (players 1..10, then 10..1), so there is no need to read every turn.
+/// </summary>
+public sealed class AutoTrackingService
+{
+    private readonly GameWindowCapture _capture;
+    private readonly ScreenshotRecognitionService _recognizer;
+    private readonly DraftSessionTracker _tracker;
+    private readonly DraftLayoutProvider _layouts;
+    private readonly HeroNameReader _heroNames;
+    private readonly ISettingsService _settings;
+    private readonly ILogger<AutoTrackingService> _logger;
+    private readonly object _gate = new();
+    private CancellationTokenSource? _cts;
+    private Task? _loop;
+
+    public AutoTrackingService(GameWindowCapture capture, ScreenshotRecognitionService recognizer, DraftSessionTracker tracker,
+        DraftLayoutProvider layouts, HeroNameReader heroNames, ISettingsService settings, ILogger<AutoTrackingService> logger)
+    {
+        _capture = capture;
+        _recognizer = recognizer;
+        _tracker = tracker;
+        _layouts = layouts;
+        _heroNames = heroNames;
+        _settings = settings;
+        _logger = logger;
+    }
+
+    /// <summary>Raised on a worker thread after every capture attempt.</summary>
+    public event Action<TrackingTick>? Ticked;
+
+    public bool IsRunning { get { lock (_gate) return _cts is not null; } }
+
+    public async Task StartAsync()
+    {
+        lock (_gate)
+            if (_cts is not null) return;
+
+        // Fail now, with a clear message, instead of silently never finding the board.
+        var layout = _layouts.Load();
+        if (!_heroNames.IsAvailable(layout.Matching.OcrLanguage))
+            throw new InvalidOperationException(
+                $"Автоотслеживанию нужен OCR Windows для языка {layout.Matching.OcrLanguage}: по имени героя определяется, что на экране доска Ability Draft. " +
+                "Добавьте язык: Параметры → Время и язык → Язык и регион → Добавить язык → English (United States).");
+
+        var settings = await _settings.LoadAsync();
+        var interval = TimeSpan.FromSeconds(Math.Clamp(settings.CaptureIntervalSeconds, 10, 600));
+        var processName = string.IsNullOrWhiteSpace(settings.GameProcessName) ? "dota2" : settings.GameProcessName.Trim();
+
+        lock (_gate)
+        {
+            if (_cts is not null) return;
+            _cts = new CancellationTokenSource();
+            var token = _cts.Token;
+            _loop = Task.Run(() => RunAsync(processName, interval, token));
+        }
+        _logger.LogInformation("Автоотслеживание запущено: процесс {Process}, интервал {Interval} с", processName, interval.TotalSeconds);
+    }
+
+    public async Task StopAsync()
+    {
+        CancellationTokenSource? cts;
+        Task? loop;
+        lock (_gate)
+        {
+            if (_cts is null) return;
+            cts = _cts;
+            loop = _loop;
+            _cts = null;
+            _loop = null;
+        }
+
+        cts.Cancel();
+        try { if (loop is not null) await loop; }
+        catch (OperationCanceledException) { }
+        finally { cts.Dispose(); } // only after the loop has finished using the token
+        _logger.LogInformation("Автоотслеживание остановлено");
+    }
+
+    private async Task RunAsync(string processName, TimeSpan interval, CancellationToken token)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(interval);
+            do
+            {
+                Tick(processName, token);
+            }
+            while (await timer.WaitForNextTickAsync(token));
+        }
+        catch (OperationCanceledException)
+        {
+            // normal stop
+        }
+    }
+
+    private void Tick(string processName, CancellationToken token)
+    {
+        var now = DateTimeOffset.Now;
+        try
+        {
+            var outcome = _capture.Capture(processName);
+            if (outcome.Frame is null)
+            {
+                _logger.LogInformation("Снимок пропущен: {Status}", outcome.Status);
+                Publish(new TrackingTick(now, outcome.Status, null, null, IsError: false));
+                return;
+            }
+
+            using var frame = outcome.Frame;
+            var snapshot = _recognizer.Recognize(frame, $"окно игры {outcome.Status}", token);
+            var update = _tracker.Process(snapshot, now);
+            Publish(new TrackingTick(now, update.Message, snapshot, update, IsError: false));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // One bad capture must not stop the tracking; the next one may work.
+            _logger.LogError(ex, "Ошибка при обработке снимка");
+            Publish(new TrackingTick(now, $"Ошибка: {ex.Message}", null, null, IsError: true));
+        }
+    }
+
+    private void Publish(TrackingTick tick)
+    {
+        try { Ticked?.Invoke(tick); }
+        catch (Exception ex) { _logger.LogError(ex, "Ошибка в обработчике события автоотслеживания"); }
+    }
+}

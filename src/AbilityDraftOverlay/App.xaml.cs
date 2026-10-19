@@ -18,6 +18,7 @@ public partial class App : Application
 
     public App()
     {
+        GameWindowCapture.EnableDpiAwareness(); // real pixel coordinates of the game window on any monitor
         _singleInstanceMutex = new Mutex(initiallyOwned: true, @"Local\AbilityDraftOverlay", out bool createdNew);
         _ownsMutex = createdNew;
 
@@ -44,7 +45,11 @@ public partial class App : Application
                 services.AddSingleton<IconIndex>();
                 services.AddSingleton<DraftLayoutProvider>();
                 services.AddSingleton<HeroNameReader>();
-                services.AddSingleton<DraftStateTracker>();
+                services.AddSingleton<ISettingsService, JsonSettingsService>();
+                services.AddSingleton<SessionStore>();
+                services.AddSingleton<DraftSessionTracker>();
+                services.AddSingleton<GameWindowCapture>();
+                services.AddSingleton<AutoTrackingService>();
                 services.AddSingleton<ScreenshotRecognitionService>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();

@@ -11,4 +11,9 @@ public sealed class AppSettings
 
     public int TargetScreenWidth { get; set; } = 1920;
     public int TargetScreenHeight { get; set; } = 1080;
+
+    /// <summary>Pause between automatic screenshots. One minute is about one pass over all 10 players.</summary>
+    public int CaptureIntervalSeconds { get; set; } = 60;
+    /// <summary>Process whose window is captured (without .exe).</summary>
+    public string GameProcessName { get; set; } = "dota2";
 }
