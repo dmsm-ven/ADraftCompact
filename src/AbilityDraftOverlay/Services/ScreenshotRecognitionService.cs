@@ -36,9 +36,9 @@ public sealed class ScreenshotRecognitionService
 
     public DraftSnapshot Recognize(string screenshotPath, CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(screenshotPath)) throw new FileNotFoundException("Скриншот не найден.", screenshotPath);
+        if (!File.Exists(screenshotPath)) throw new FileNotFoundException("Screenshot not found.", screenshotPath);
         using var screenshot = Cv2.ImRead(screenshotPath, ImreadModes.Color);
-        if (screenshot.Empty()) throw new InvalidDataException("Не удалось прочитать скриншот как изображение.");
+        if (screenshot.Empty()) throw new InvalidDataException("Could not read screenshot as an image.");
         return Recognize(screenshot, screenshotPath, cancellationToken);
     }
 
@@ -51,7 +51,7 @@ public sealed class ScreenshotRecognitionService
 
         var layout = _layouts.Load();
         if (screenshot.Width * 9 != screenshot.Height * 16)
-            _logger.LogWarning("Кадр {W}x{H} не 16:9; координаты раскладки будут промасштабированы неточно", screenshot.Width, screenshot.Height);
+            _logger.LogWarning("Frame {W}x{H} is not 16:9; layout coordinates may be scaled inaccurately", screenshot.Width, screenshot.Height);
 
         var placements = layout.Expand(screenshot.Width, screenshot.Height);
         var results = new SlotResult?[placements.Count];
@@ -75,7 +75,7 @@ public sealed class ScreenshotRecognitionService
             boardDetected = cards >= layout.Matching.BoardMinCards;
             if (!boardDetected)
             {
-                _logger.LogInformation("Кадр {Source}: доска Ability Draft не найдена (карточек с именем героя или NO HERO: {Cards} из {Min})",
+                _logger.LogInformation("Frame {Source}: Ability Draft board not detected (hero name or NO HERO found on {Cards} of {Min} cards)",
                     sourceLabel, cards, layout.Matching.BoardMinCards);
                 total.Stop();
                 return new DraftSnapshot(results.Where(r => r is not null).Select(r => r!).ToArray(), total.Elapsed, indexTime,
@@ -93,7 +93,7 @@ public sealed class ScreenshotRecognitionService
         var debugPath = TrySaveDebugImage(screenshot, final);
         total.Stop();
 
-        _logger.LogInformation("Кадр {Source} ({W}x{H}): слотов {Slots}, распознано {Ok}, неуверенно {Unsure}, пусто {Empty}; всего {Total} мс (загрузка индекса {Index} мс)",
+        _logger.LogInformation("Frame {Source} ({W}x{H}): {Slots} slots, {Ok} recognized, {Unsure} uncertain, {Empty} empty; {Total} ms total ({Index} ms to load index)",
             sourceLabel, screenshot.Width, screenshot.Height, final.Length,
             final.Count(r => r.State == SlotState.Recognized), final.Count(r => r.State == SlotState.Uncertain),
             final.Count(r => r.State == SlotState.Empty), (long)total.Elapsed.TotalMilliseconds, (long)indexTime.TotalMilliseconds);
@@ -107,8 +107,8 @@ public sealed class ScreenshotRecognitionService
         if (wanted == "image") return "image";
         if (_heroNames.IsAvailable(options.OcrLanguage)) return "ocr";
         if (wanted == "ocr")
-            throw new InvalidOperationException($"OCR для языка {options.OcrLanguage} недоступен. Установите язык в Windows (Параметры → Время и язык → Язык и регион → Добавить язык → English (United States)) или поставьте heroSource: \"image\" в раскладке.");
-        _logger.LogWarning("OCR недоступен, герои определяются по картинкам (ненадёжно: арт героя анимирован)");
+            throw new InvalidOperationException($"OCR for language {options.OcrLanguage} is unavailable. Install English (United States) in Windows language settings or set heroSource to \"image\" in the layout.");
+        _logger.LogWarning("OCR is unavailable; heroes will be matched by images (less reliable because hero art is animated)");
         return "image";
     }
 
@@ -237,7 +237,7 @@ public sealed class ScreenshotRecognitionService
         }
         catch (Exception ex) when (ex is IOException or OpenCVException)
         {
-            _logger.LogWarning(ex, "Не удалось сохранить отладочное изображение");
+            _logger.LogWarning(ex, "Failed to save debug image");
             return null;
         }
     }

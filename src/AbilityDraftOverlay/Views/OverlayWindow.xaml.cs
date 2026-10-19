@@ -1,4 +1,4 @@
-﻿using AbilityDraftOverlay.Models;
+using AbilityDraftOverlay.Models;
 using AbilityDraftOverlay.Services;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -94,8 +94,8 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
             if (handle == IntPtr.Zero)
                 return;
 
-            // Просим Windows перемещать окно как обычное окно за заголовок.
-            // Это надёжнее DragMove для прозрачного WPF overlay.
+            // Ask Windows to move the window as a standard caption-drag operation.
+            // This is more reliable than DragMove for a transparent WPF overlay.
             ReleaseCapture();
             SendMessage(handle, WmNcLButtonDown, (IntPtr)HtCaption, IntPtr.Zero);
         };
@@ -116,7 +116,7 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
 
         _positionEditMode = true;
 
-        // Разрешаем взаимодействие с окном.
+        // Allow interaction with the window.
         SetClickThrough(false);
         SetNoActivate(false);
 

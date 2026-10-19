@@ -1,4 +1,4 @@
-﻿<Window x:Class="AbilityDraftOverlay.Views.OverlayWindow"
+<Window x:Class="AbilityDraftOverlay.Views.OverlayWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Ability Draft Overlay" Width="268" Height="590" MinWidth="80" MinHeight="80"

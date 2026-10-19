@@ -1,4 +1,4 @@
-﻿using AbilityDraftOverlay.Models;
+using AbilityDraftOverlay.Models;
 using System.Text;
 
 namespace AbilityDraftOverlay.Services;
@@ -29,7 +29,7 @@ public static class DraftReportFormatter
         {
             SlotState.Recognized => result.DisplayName ?? result.EntityId ?? "?",
             SlotState.Uncertain => result.DisplayName ?? result.EntityId ?? "?",
-            SlotState.OutOfBounds => "[вне кадра]",
+            SlotState.OutOfBounds => "[out of bounds]",
             _ => "—"
         };
     }

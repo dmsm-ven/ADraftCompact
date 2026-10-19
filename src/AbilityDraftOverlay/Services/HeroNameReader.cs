@@ -1,4 +1,4 @@
-﻿using AbilityDraftOverlay.Models;
+using AbilityDraftOverlay.Models;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 using System.Runtime.InteropServices;
@@ -50,7 +50,7 @@ public sealed class HeroNameReader
         }
 
         if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
-            _logger.LogDebug("OCR имени героя @({X},{Y}): {Lines}", band.X, band.Y, string.Join(" | ", lines));
+            _logger.LogDebug("Hero name OCR @({X},{Y}): {Lines}", band.X, band.Y, string.Join(" | ", lines));
         return lines;
     }
 
@@ -157,7 +157,7 @@ public sealed class HeroNameReader
         }
         catch (Exception ex) when (ex is COMException or InvalidOperationException or ArgumentException)
         {
-            _logger.LogWarning(ex, "Сбой OCR при чтении имени героя");
+            _logger.LogWarning(ex, "OCR failed while reading hero name");
             return Array.Empty<string>();
         }
     }
@@ -177,13 +177,13 @@ public sealed class HeroNameReader
             }
             catch (Exception ex) when (ex is ArgumentException or COMException)
             {
-                _logger.LogWarning(ex, "Некорректный язык OCR: {Language}", languageTag);
+                _logger.LogWarning(ex, "Invalid OCR language: {Language}", languageTag);
             }
 
             if (engine is null && !_unavailableLogged)
             {
                 _unavailableLogged = true;
-                _logger.LogWarning("Windows OCR для языка {Language} недоступен. Установите язык: Параметры → Время и язык → Язык и регион → Добавить язык → English (United States).", languageTag);
+                _logger.LogWarning("Windows OCR is unavailable for language {Language}. Install English (United States) in Windows language settings.", languageTag);
             }
 
             _engine = engine;

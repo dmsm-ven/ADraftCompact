@@ -34,7 +34,7 @@ public sealed class SessionStore
         }
         catch (IOException ex)
         {
-            _logger.LogWarning(ex, "Не удалось сохранить сессию {Id}", session.Id);
+            _logger.LogWarning(ex, "Failed to save session {Id}", session.Id);
         }
     }
 }

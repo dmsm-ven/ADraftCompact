@@ -27,21 +27,21 @@ public sealed class DraftLayoutProvider
     public DraftLayout Load()
     {
         var path = File.Exists(AppPaths.UserLayout) ? AppPaths.UserLayout : BundledLayoutPath;
-        if (!File.Exists(path)) throw new FileNotFoundException("Файл раскладки драфта не найден.", path);
+        if (!File.Exists(path)) throw new FileNotFoundException("Draft layout file not found.", path);
 
         DraftLayout layout;
         try
         {
             layout = JsonSerializer.Deserialize<DraftLayout>(File.ReadAllText(path), Options)
-                     ?? throw new InvalidDataException("Файл раскладки пуст.");
+                     ?? throw new InvalidDataException("Draft layout file is empty.");
         }
         catch (JsonException ex)
         {
-            throw new InvalidDataException($"Ошибка в файле раскладки {path}: {ex.Message}", ex);
+            throw new InvalidDataException($"Invalid draft layout file {path}: {ex.Message}", ex);
         }
 
         layout.Validate();
-        _logger.LogInformation("Раскладка загружена из {Path} (calibrated={Calibrated})", path, layout.Calibrated);
+        _logger.LogInformation("Layout loaded from {Path} (calibrated={Calibrated})", path, layout.Calibrated);
         return layout;
     }
 }

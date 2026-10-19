@@ -36,14 +36,14 @@
             <DockPanel LastChildFill="True">
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                     <Button Margin="5,0,0,0" Command="{Binding ToggleTrackingCommand}" Content="{Binding TrackingButtonText}"
-                        ToolTip="Автоматически захватывать окно Dota 2 и распознавать выборы" />
+                        ToolTip="Automatically capture Dota 2 and recognize picks" />
                     <Button Margin="5,0,0,0" Command="{Binding ToggleOverlayCommand}" Content="{Binding OverlayButtonText}"
-                        ToolTip="Показать/скрыть прозрачный оверлей поверх игры" />
-                    <Button Margin="5,0,0,0" Command="{Binding OpenOverlaySettingsCommand}" Content="⚙ Оверлей"
-                        ToolTip="Настроить расположение, размер и оформление оверлея" />
-                    <Button Margin="5,0,0,0" Command="{Binding DownloadResourcesCommand}" Content="⇩ Ресурсы"
-                        ToolTip="Загрузить иконки героев и способностей" />
-                    <Button Margin="5,0,0,0" Command="{Binding ClearEventsCommand}" Content="⌫ Очистить журнал" />
+                        ToolTip="Show or hide the transparent in-game overlay" />
+                    <Button Margin="5,0,0,0" Command="{Binding OpenOverlaySettingsCommand}" Content="⚙ Overlay"
+                        ToolTip="Configure overlay position, size, and appearance" />
+                    <Button Margin="5,0,0,0" Command="{Binding DownloadResourcesCommand}" Content="⇩ Assets"
+                        ToolTip="Download hero and ability icons" />
+                    <Button Margin="5,0,0,0" Command="{Binding ClearEventsCommand}" Content="⌫ Clear log" />
                 </StackPanel>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock FontSize="18" FontWeight="SemiBold" Text="Ability Draft Overlay" />
@@ -54,7 +54,7 @@
         <Border Grid.Row="1" Padding="10" Background="#FF232833" CornerRadius="7">
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <TextBlock Margin="0,0,0,8" FontSize="15" FontWeight="SemiBold" Text="Журнал событий" />
+                <TextBlock Margin="0,0,0,8" FontSize="15" FontWeight="SemiBold" Text="Event log" />
                 <ListBox Grid.Row="1" Padding="4" Background="#FF171A21" BorderBrush="#FF3A414E"
                     Foreground="#FFF2F4F8" ItemsSource="{Binding Events}">
                     <ListBox.ItemTemplate><DataTemplate>

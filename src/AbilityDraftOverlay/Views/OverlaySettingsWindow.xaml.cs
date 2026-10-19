@@ -87,8 +87,8 @@ public partial class OverlaySettingsWindow : Window
         {
             _overlay.BeginPositionEdit();
             _positionEditing = true;
-            PositionStatus.Text = "Перетащите оверлей, затем закрепите позицию";
-            PositionButton.Content = "Закрепить позицию";
+            PositionStatus.Text = "Drag the overlay, then save its position";
+            PositionButton.Content = "Save position";
         }
         else
         {
@@ -96,8 +96,8 @@ public partial class OverlaySettingsWindow : Window
             _settings.Top = _overlay.Top;
             _overlay.EndPositionEdit(true);
             _positionEditing = false;
-            PositionStatus.Text = "Позиция закреплена";
-            PositionButton.Content = "Переместить оверлей";
+            PositionStatus.Text = "Position saved";
+            PositionButton.Content = "Move overlay";
         }
     }
 
@@ -195,7 +195,7 @@ public partial class OverlaySettingsWindow : Window
             _settings.Top = _overlay.Top;
             _overlay.EndPositionEdit(true);
             _positionEditing = false;
-            PositionButton.Content = "Переместить оверлей";
+            PositionButton.Content = "Move overlay";
         }
         _settings.Left = _overlay.Left;
         _settings.Top = _overlay.Top;

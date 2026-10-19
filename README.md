@@ -1,96 +1,43 @@
 # Ability Draft Overlay
 
-WPF-приложение для автоматического отслеживания выбора героев и способностей в Dota 2 Ability Draft. Для распознавания имён героев используется встроенный в Windows OCR (офлайн), а для способностей — сопоставление иконок.
+A lightweight Windows overlay for **Dota 2 Ability Draft**. It recognizes the draft board, tracks hero and ability picks for all 10 players, saves sessions locally, and displays the current picks in a transparent overlay.
 
-## Что реализовано на текущем этапе
+## Features
 
-- .NET 10 WPF, `.slnx`, DI через `Microsoft.Extensions.Hosting`, MVVM через CommunityToolkit.Mvvm.
-- Одновременно запускается только один экземпляр приложения.
-- Главное окно без окна настроек и без переключения тем.
-- Автоотслеживание периодически снимает окно Dota 2, распознаёт доску Ability Draft и ведёт сессию.
-- Отдельный прозрачный игровой оверлей показывает героев и способности всех 10 игроков.
-- Список `ListBox` показывает журнал событий, в том числе старт загрузки, этапы и ошибки.
-- Кнопка **«Загрузить ресурсы»** скачивает справочники OpenDota и портреты и иконки героев, изображения способностей с публичного Steam CDN.
-- Загрузка инкрементальная: существующие непустые файлы не скачиваются повторно.
-- Логирование приложения записывается в текстовый файл; ошибки загрузки также выводятся в окне.
+- .NET 10 / WPF desktop app.
+- Automatic draft-board capture and recognition.
+- Transparent overlay with configurable position, icon size, spacing, background opacity, and borders.
+- Local session history and event log.
+- Incremental download of hero and ability artwork.
 
-## Запуск
+## Requirements
 
-Требуются Windows и .NET 10 SDK.
+- Windows and the .NET 10 SDK.
+- Dota 2 set to **Borderless Window** or **Windowed** mode.
+- English (United States) Windows OCR language for hero-name recognition.
 
-```powershell
-dotnet restore .\AbilityDraftOverlay.slnx
-dotnet build .\AbilityDraftOverlay.slnx
-dotnet run --project .\src\AbilityDraftOverlay\AbilityDraftOverlay.csproj
-```
+## Run
 
-## Где хранятся ресурсы
+Open `AbilityDraftOverlay.slnx` in Visual Studio, restore packages, and run the `AbilityDraftOverlay` project. Use **Download Assets** on first launch, then select **Start Tracking**. Captures are performed only while the configured game process is the foreground window.
 
-Ресурсы: `%LocalAppData%\AbilityDraftOverlay\Assets`
+## Local data
 
-Логи: `%LocalAppData%\AbilityDraftOverlay\Logs` (отдельный файл на каждый запуск)
+All app data is stored under `%LocalAppData%\AbilityDraftOverlay\`:
 
-Отладочные изображения: `%LocalAppData%\AbilityDraftOverlay\Debug`
+- `Assets` — downloaded images and reference data.
+- `Sessions` — saved draft sessions (`.json`).
+- `Logs` — application logs.
+- `Cache` — generated icon index.
+- `Debug` — latest recognition debug image.
 
-Внутри будут `heroes` (портреты и иконки), `abilities` и `data`. Способности скачиваются в современном варианте и в двух legacy-размерах (`_lg`, `_md`), поскольку их внешний вид может различаться от варианта, показанного в игровом драфте.
+## Overlay layout
 
-## Как работает распознавание
+The overlay displays odd-numbered players (1, 3, 5, 7, 9) in the upper block and even-numbered players (2, 4, 6, 8, 10) in the lower block. Each player row contains the hero, three abilities, and the ultimate. Use **Overlay** to adjust appearance and **Move Overlay** to reposition it.
 
-Экран Ability Draft статичен, поэтому вместо поиска тысяч шаблонов по всему кадру (минуты) используется:
+## Sources and Notes
 
-1. **Раскладка слотов** (`Layouts/ability_draft_1920x1080.json`): прямоугольники арта героя и четырёх слотов способностей для каждого из 10 игроков (слоты 0–2 — обычные способности, слот 3 — ультимейт). Номер игрока = `row * 2 + column + 1` (ряд 0: игроки 1 и 2, ряд 1: игроки 3 и 4, …); левая колонка — команда 1, правая — команда 2, у неё арт героя справа.
-2. **Индекс иконок** (`IconIndex`): каждая иконка один раз сжимается до цветового дескриптора 24×24 (нормированный вектор). Индекс кэшируется в `%LocalAppData%\AbilityDraftOverlay\Cache\icons.index` и перестраивается только при изменении ресурсов.
-3. **Герои — по имени, не по картинке.** Арт героя в карточке анимирован (герой двигается), поэтому статичные портреты с CDN не подходят. Вместо этого читается строка с именем («SNAPFIRE» / «NO HERO») встроенным OCR Windows (`Windows.Media.Ocr`, ничего устанавливать не нужно, кроме английского языка Windows) и нечётко сопоставляется со списком героев из OpenDota. Режим задаётся `heroSource` в раскладке: `auto` (OCR, при его отсутствии — картинки), `ocr`, `image`. Клиент игры должен быть на английском.
-4. **Сопоставление способностей**: каждый слот (~60 маленьких вырезок) сравнивается с индексом через скалярное произведение (косинусное сходство), при этом пробуются небольшие сдвиги ±`shiftPx`. Слот принимается, если оценка ≥ `minScore` и отрыв от второго *другого* кандидата ≥ `minMargin`. Пустота определяется до сопоставления по центру слота: пустая способность — почти чёрный квадрат (`abilityEmptyMaxMean`), «NO HERO» — плоская картинка (`heroEmptyMaxStdDev`).
-5. **Трекер** (`DraftStateTracker`): сообщает слот один раз, когда он из пустого стал распознанным: «игрок N → герой/способность X». Для таймера позже можно поднять `ConfirmFrames`, чтобы выбор подтверждался несколькими кадрами подряд.
+- [OpenDota constants](https://github.com/odota/dotaconstants) — JSON metadata for heroes and abilities.
+- [Steam CDN](https://cdn.cloudflare.steamstatic.com/apps/dota2/images/) — public Dota 2 images.
+- [Dota 2 Assets Downloader](https://github.com/CaptchaQ/dota2-assets-downloader) — an alternative PowerShell downloader if additional asset categories are needed later.
 
-Скриншот = один вызов `ScreenshotRecognitionService.RecognizeAsync`, результат — `DraftSnapshot`, текстовый вид — `DraftReportFormatter`.
-
-## Автоотслеживание
-
-Кнопка **«▶ Запустить автоотслеживание»**: первый снимок сразу, дальше по таймеру (`captureIntervalSeconds` в `%AppData%\AbilityDraftOverlay\settings.json`, по умолчанию 60). Снимается только окно процесса `dota2` (на любом мониторе); если оно свёрнуто или перекрыто другим окном, снимок пропускается. Игра должна быть в режиме «Окно» или «Полноэкранный без рамки».
-
-- **Сессия.** Доска считается найденной, когда имя героя (или «NO HERO») прочитано минимум на 8 из 10 карточек. Тогда создаётся сессия с GUID и датой; после двух снимков подряд без доски сессия завершается, а если доска внезапно почти опустела (меньше половины известных выборов) — это новая игра и новая сессия. Все сессии лежат в `%LocalAppData%\AbilityDraftOverlay\Sessions\*.json`.
-- **Порядок выбора.** У каждого игрока ведётся список выбранного (герой считается одним из пяти выборов) по порядку: способность записывается по самой способности, а не по слоту, поэтому перестановка иконок игроком порядок не ломает. Отдельно сохраняется текущая расстановка слотов, чтобы оверлей мог показывать любой из двух вариантов.
-- **Приблизительный порядок.** Если два предмета одного игрока впервые появились в одном интервале между снимками, их порядок нельзя узнать из наблюдений: он выставляется по слотам и помечается `orderUncertain`. Это неизбежно у игроков на «развороте» очереди (10 и 1 выбирают два раза подряд), а при длинном интервале — и у остальных.
-
-**Интервал снимков.** Проход по 10 игрокам занимает около 50 секунд, поэтому при интервале 60 секунд у части игроков в один интервал попадают два выбора. Симуляция полного драфта (по 5 выборов у 10 игроков, перестановки иконок, 20% неуверенных чтений, 200 прогонов) даёт долю предметов с приблизительным порядком: 60 с — 47%, 45 с — 34%, 30 с — 24%, 20 с — 16%, 10 с — 8%. Все выборы находятся при любом интервале; с идеальным распознаванием порядок, выставленный с уверенностью, всегда верен. Если точный порядок важен, поставьте 20–30 секунд: один снимок занимает около секунды.
-
-## Язык OCR
-
-Нужен английский язык Windows с распознаванием текста: *Параметры → Время и язык → Язык и регион → Добавить язык → English (United States)* (компонент «Распознавание текста» входит в базовые функции языка). Если OCR недоступен, в журнале будет предупреждение, а герои определятся по картинкам (ненадёжно).
-
-## Калибровка раскладки
-
-Встроенная раскладка измерена по реальному скриншоту 1920×1080 (22-й раунд): на нём все 50 слотов (10 игроков × герой + 4 способности) правильно определяются как пустые/заполненные. Если у вас другой интерфейс или масштаб, подгоните её под свой экран:
-
-1. Запустите автоотслеживание и дождитесь снимка доски Ability Draft.
-2. Откройте `%LocalAppData%\AbilityDraftOverlay\Debug\last_recognition.png` — на нём нарисованы все слоты и вердикты (зелёный — распознано, жёлтый — неуверенно, серый — пусто, красный — вне кадра).
-3. Скопируйте JSON в `%LocalAppData%\AbilityDraftOverlay\layout.1920x1080.json`, поправьте числа (этот файл имеет приоритет над встроенным, пересборка не нужна) и повторяйте, пока рамки не совпадут с иконками.
-4. Поставьте `"calibrated": true`. Пороги `minScore`/`minMargin` подберите по значениям оценок, которые видны в отладочном изображении и в тексте результата.
-
-## Ограничения и дальнейшая проверка
-
-- SQLite-хранение пока не используется: сессии сохраняются в JSON.
-- Нужно проверить сопоставление иконок на реальных ресурсах и подобрать пороги `minScore`/`minMargin`.
-- Положение оверлея пока рассчитано относительно основного экрана; для конкретного расположения и масштаба игры может потребоваться настройка.
-
-## Источники и примечания
-
-- [OpenDota constants](https://github.com/odota/dotaconstants) — JSON-метаданные героев и способностей.
-- [Steam CDN](https://cdn.cloudflare.steamstatic.com/apps/dota2/images/) — публичные изображения Dota 2.
-- [Dota 2 Assets Downloader](https://github.com/CaptchaQ/dota2-assets-downloader) — альтернативный PowerShell-загрузчик, если позже понадобятся дополнительные категории ресурсов.
-
-Изображения и игровые ресурсы принадлежат их правообладателям. Совпадение скачанных иконок с изображениями на конкретном экране Ability Draft нужно будет проверить на реальных скриншотах.
-
-## Игровой оверлей и главное окно
-
-- Главное окно показывает журнал событий на всю доступную область; ручной выбор отдельного скриншота убран из интерфейса.
-- Кнопки запуска/остановки автоотслеживания, показа оверлея, загрузки ресурсов и очистки журнала расположены в верхней панели.
-- Оверлей отображает 10 игроков в два блока: нечётные номера (1, 3, 5, 7, 9) сверху, чётные (2, 4, 6, 8, 10) снизу. В каждой строке пять иконок: герой, три обычные способности и ультимейт.
-- Оверлей настроен как прозрачное окно поверх остальных окон, не активирует себя и пропускает мышиные клики в игру. Для надёжного отображения поверх Dota 2 рекомендуется режим «Без рамки» (Borderless Window). В эксклюзивном полноэкранном режиме обычное WPF-окно может не отображаться поверх игры.
-- Иконки берутся из локальных ресурсов в `%LocalAppData%\AbilityDraftOverlay\Assets`; незаполненные или ещё не распознанные слоты остаются пустыми.
-
-### Настройки оверлея
-
-Кнопка **⚙ Оверлей** открывает компактные настройки внешнего вида. Позицию можно изменить кнопкой «Переместить оверлей»: перетащите окно мышью и нажмите «Сохранить». В обычном режиме оверлей остаётся прозрачным и пропускает клики в игру. Настройки размера и отступов, цвета/непрозрачности фона, рамок и названий Radiant/Dire сохраняются в `%LocalAppData%\AbilityDraftOverlay\overlay-settings.json`.
+Images and game assets belong to their respective copyright holders. The downloaded icons should be checked against real Ability Draft screenshots to confirm that they match the artwork shown in-game.

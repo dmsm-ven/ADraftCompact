@@ -26,7 +26,7 @@ public partial class App : Application
         {
             _singleInstanceMutex.Dispose();
             _singleInstanceMutex = null;
-            MessageBox.Show("Ability Draft Overlay уже запущен.", "Ability Draft Overlay",
+            MessageBox.Show("Ability Draft Overlay is already running.", "Ability Draft Overlay",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;

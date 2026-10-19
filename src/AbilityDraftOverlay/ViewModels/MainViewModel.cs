@@ -23,14 +23,14 @@ public partial class MainViewModel : ObservableObject
     private readonly OverlaySettingsService _overlaySettingsService;
     [ObservableProperty] private bool isOverlayVisible;
 
-    [ObservableProperty] private string statusText = "Готово.";
+    [ObservableProperty] private string statusText = "Ready.";
     [ObservableProperty] private bool isBusy;
-    [ObservableProperty] private string resourceSummary = "Ресурсы: проверка...";
+    [ObservableProperty] private string resourceSummary = "Assets: checking...";
     [ObservableProperty] private bool isTracking;
-    [ObservableProperty] private string sessionText = "Сессия: нет";
+    [ObservableProperty] private string sessionText = "Session: none";
     public ObservableCollection<DraftEvent> Events { get; } = new();
-    public string TrackingButtonText => IsTracking ? "■ Остановить отслеживание" : "▶ Отслеживать";
-    public string OverlayButtonText => IsOverlayVisible ? "▣ Скрыть оверлей" : "▣ Показать оверлей";
+    public string TrackingButtonText => IsTracking ? "■ Stop tracking" : "▶ Start tracking";
+    public string OverlayButtonText => IsOverlayVisible ? "▣ Hide overlay" : "▣ Show overlay";
 
     public MainViewModel(DotaAssetsDownloader assetsDownloader,
         DraftSessionTracker tracker, AutoTrackingService autoTracking, IconIndex iconIndex, OverlayWindow overlayWindow, OverlaySettingsService overlaySettingsService, ILogger<MainViewModel> logger)
@@ -90,8 +90,8 @@ public partial class MainViewModel : ObservableObject
     {
         if (IsBusy) return;
         IsBusy = true;
-        AddEvent(DraftEventKind.Resource, "download", "Проверка доступности источника ресурсов.");
-        _logger.LogInformation("Пользователь запросил загрузку ресурсов");
+        AddEvent(DraftEventKind.Resource, "download", "Checking asset source availability.");
+        _logger.LogInformation("User requested asset download");
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
@@ -99,20 +99,20 @@ public partial class MainViewModel : ObservableObject
             try { available = await _assetsDownloader.CheckAvailabilityAsync(timeout.Token); }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
-                _logger.LogWarning(ex, "OpenDota недоступен на этапе проверки");
+                _logger.LogWarning(ex, "OpenDota availability check failed");
                 available = false;
             }
             if (!available)
             {
-                StatusText = "Источники ресурсов недоступны. Загрузка отменена; проверьте подключение к сети.";
+                StatusText = "Asset sources are unavailable. Download cancelled; check your network connection.";
                 AddEvent(DraftEventKind.Error, "resource-check", StatusText);
-                _logger.LogWarning("Загрузка отменена: OpenDota недоступен");
+                _logger.LogWarning("Download cancelled: OpenDota is unavailable");
                 return;
             }
 
-            StatusText = "Загрузка ресурсов...";
+            StatusText = "Downloading assets...";
             var result = await _assetsDownloader.DownloadAsync(message => Application.Current.Dispatcher.Invoke(() => StatusText = message));
-            StatusText = $"Загрузка завершена: новых {result.Downloaded}, пропущено {result.Skipped}, ошибок {result.Failed}.";
+            StatusText = $"Download complete: {result.Downloaded} new, {result.Skipped} skipped, {result.Failed} failed.";
             AddEvent(result.Failed > 0 ? DraftEventKind.Error : DraftEventKind.Resource, "assets", StatusText);
             _logger.LogInformation("{Summary}", StatusText);
             _iconIndex.Invalidate(); // new icons -> rebuild the descriptor index on next recognition
@@ -120,9 +120,9 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusText = $"Ошибка загрузки ресурсов: {ex.Message}";
+            StatusText = $"Asset download failed: {ex.Message}";
             AddEvent(DraftEventKind.Error, "download", StatusText);
-            _logger.LogError(ex, "Загрузка ресурсов завершилась ошибкой");
+            _logger.LogError(ex, "Asset download failed");
         }
         finally { IsBusy = false; }
     }
@@ -134,7 +134,7 @@ public partial class MainViewModel : ObservableObject
         {
             await _autoTracking.StopAsync();
             IsTracking = false;
-            StatusText = "Автоотслеживание остановлено.";
+            StatusText = "Auto-tracking stopped.";
             AddEvent(DraftEventKind.Resource, "tracking", StatusText);
             return;
         }
@@ -144,14 +144,14 @@ public partial class MainViewModel : ObservableObject
             _lastTickStatus = null;
             await _autoTracking.StartAsync();
             IsTracking = true;
-            StatusText = "Автоотслеживание запущено: первый снимок делается сразу, дальше раз в минуту.";
+            StatusText = "Auto-tracking started: the first capture is immediate, then one capture per minute.";
             AddEvent(DraftEventKind.Resource, "tracking", StatusText);
         }
         catch (Exception ex)
         {
-            StatusText = $"Не удалось запустить автоотслеживание: {ex.Message}";
+            StatusText = $"Could not start auto-tracking: {ex.Message}";
             AddEvent(DraftEventKind.Error, "tracking", StatusText);
-            _logger.LogError(ex, "Не удалось запустить автоотслеживание");
+            _logger.LogError(ex, "Could not start auto-tracking");
         }
     }
 
@@ -173,21 +173,21 @@ public partial class MainViewModel : ObservableObject
 
         if (update.EndedSession is { } ended)
             AddEvent(DraftEventKind.Resource, "session",
-                $"Сессия {ended.Id} завершена: снимков {ended.Captures}, выборов {ended.TotalPicks}. Файл: {SessionStore.PathFor(ended)}");
+                $"Session {ended.Id} ended: {ended.Captures} captures, {ended.TotalPicks} picks. File: {SessionStore.PathFor(ended)}");
         if (update is { Started: true, Session: { } started })
-            AddEvent(DraftEventKind.Resource, "session", $"Новая сессия {started.Id} · {started.StartedAt:dd.MM.yyyy HH:mm:ss}");
+            AddEvent(DraftEventKind.Resource, "session", $"New session {started.Id} · {started.StartedAt:yyyy-MM-dd HH:mm:ss}");
 
         foreach (var pick in update.NewPicks)
             AddEvent(pick.Type == SlotType.Hero ? DraftEventKind.Hero : DraftEventKind.Ability, pick.EntityId,
-                $"Игрок {pick.Player}: {pick.PickOrder}-й выбор — {(pick.Type == SlotType.Hero ? "герой" : "способность")} {pick.DisplayName}" +
-                $"{(pick.OrderUncertain ? " (порядок приблизительный)" : "")} · снимок №{pick.Capture}", pick.Player);
+                $"Player {pick.Player}: pick #{pick.PickOrder} — {(pick.Type == SlotType.Hero ? "hero" : "ability")} {pick.DisplayName}" +
+                $"{(pick.OrderUncertain ? " (order estimated)" : "")} · capture #{pick.Capture}", pick.Player);
 
         if (snapshot is { BoardDetected: true } && (update.NewPicks.Count > 0 || update.Started))
             AddEvent(DraftEventKind.Frame, "report", DraftReportFormatter.Format(snapshot));
 
         SessionText = update.Session is { } session
-            ? $"Сессия {session.Id} · с {session.StartedAt:dd.MM HH:mm:ss} · снимков {session.Captures} · выборов {session.TotalPicks}"
-            : "Сессия: нет";
+            ? $"Session {session.Id} · since {session.StartedAt:MM-dd HH:mm:ss} · captures {session.Captures} · picks {session.TotalPicks}"
+            : "Session: none";
         _overlayWindow.UpdateSession(update.Session);
     }
 
@@ -195,8 +195,8 @@ public partial class MainViewModel : ObservableObject
     private void ClearEvents()
     {
         Events.Clear();
-        _tracker.EndSession(DateTimeOffset.Now, "Журнал очищен"); // the next recognized board starts a new session
-        SessionText = "Сессия: нет";
+        _tracker.EndSession(DateTimeOffset.Now, "Log cleared"); // the next recognized board starts a new session
+        SessionText = "Session: none";
         _overlayWindow.UpdateSession(null);
     }
 
@@ -205,22 +205,22 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var info = DotaAssetsDownloader.GetStorageInfo();
-            ResourceSummary = $"Ресурсы: {info.FileCount:N0} файлов · {FormatBytes(info.TotalBytes)}";
-            _logger.LogInformation("Локальные ресурсы: файлов {Count}, размер {Bytes} байт", info.FileCount, info.TotalBytes);
+            ResourceSummary = $"Assets: {info.FileCount:N0} files · {FormatBytes(info.TotalBytes)}";
+            _logger.LogInformation("Local assets: {Count} files, {Bytes} bytes", info.FileCount, info.TotalBytes);
         }
         catch (Exception ex)
         {
-            ResourceSummary = "Ресурсы: не удалось прочитать каталог";
-            _logger.LogWarning(ex, "Не удалось подсчитать локальные ресурсы");
+            ResourceSummary = "Assets: could not read directory";
+            _logger.LogWarning(ex, "Failed to count local assets");
         }
     }
 
     private static string FormatBytes(long bytes) => bytes switch
     {
-        >= 1_073_741_824 => $"{bytes / 1_073_741_824d:F2} ГБ",
-        >= 1_048_576 => $"{bytes / 1_048_576d:F1} МБ",
-        >= 1_024 => $"{bytes / 1_024d:F1} КБ",
-        _ => $"{bytes} Б"
+        >= 1_073_741_824 => $"{bytes / 1_073_741_824d:F2} GB",
+        >= 1_048_576 => $"{bytes / 1_048_576d:F1} MB",
+        >= 1_024 => $"{bytes / 1_024d:F1} KB",
+        _ => $"{bytes} B"
     };
 
     private void AddEvent(DraftEventKind kind, string source, string message, int player = 0) =>

@@ -76,12 +76,12 @@ public sealed class DraftLayout
 
     public void Validate()
     {
-        if (ReferenceWidth <= 0 || ReferenceHeight <= 0) throw new InvalidDataException("Layout: referenceWidth/referenceHeight должны быть > 0.");
-        if (Rows <= 0) throw new InvalidDataException("Layout: rows должен быть > 0.");
-        if (Columns.Count == 0) throw new InvalidDataException("Layout: нужна хотя бы одна колонка команды (columns).");
-        if (Hero.W <= 0 || Hero.H <= 0) throw new InvalidDataException("Layout: hero.w/hero.h должны быть > 0.");
+        if (ReferenceWidth <= 0 || ReferenceHeight <= 0) throw new InvalidDataException("Layout: referenceWidth/referenceHeight must be > 0.");
+        if (Rows <= 0) throw new InvalidDataException("Layout: rows must be > 0.");
+        if (Columns.Count == 0) throw new InvalidDataException("Layout: at least one team column (columns) is required.");
+        if (Hero.W <= 0 || Hero.H <= 0) throw new InvalidDataException("Layout: hero.w/hero.h must be > 0.");
         if (Abilities.Count == 0 && Columns.All(c => c.Abilities is null or { Count: 0 }))
-            throw new InvalidDataException("Layout: не задан ни один слот способности (abilities).");
+            throw new InvalidDataException("Layout: no ability slots (abilities) are defined.");
     }
 
     /// <summary>Expands the compact description into concrete slots, scaled to the real screenshot size.</summary>

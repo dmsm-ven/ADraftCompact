@@ -106,22 +106,22 @@ public sealed class IconIndex
         {
             if (IsLoaded) return;
             if (!Directory.Exists(AppPaths.Assets))
-                throw new DirectoryNotFoundException($"Каталог ресурсов не найден: {AppPaths.Assets}. Сначала загрузите ресурсы.");
+                throw new DirectoryNotFoundException($"Asset directory not found: {AppPaths.Assets}. Download assets first.");
 
             var heroFiles = EnumerateHeroFiles().ToArray();
             var abilityFiles = EnumerateAbilityFiles().ToArray();
             if (heroFiles.Length == 0 && abilityFiles.Length == 0)
-                throw new InvalidOperationException("В каталоге ресурсов нет PNG-иконок героев или способностей.");
+                throw new InvalidOperationException("No hero or ability PNG icons were found in the asset directory.");
 
             var fingerprint = Fingerprint(heroFiles.Concat(abilityFiles));
             var cachePath = Path.Combine(AppPaths.Cache, "icons.index");
             if (!TryLoadCache(cachePath, fingerprint))
             {
-                _logger.LogInformation("Построение индекса иконок: героев {Heroes}, способностей {Abilities} файлов", heroFiles.Length, abilityFiles.Length);
+                _logger.LogInformation("Building icon index: {Heroes} heroes, {Abilities} ability files", heroFiles.Length, abilityFiles.Length);
                 var started = System.Diagnostics.Stopwatch.StartNew();
                 Heroes = BuildBank(heroFiles);
                 Abilities = BuildBank(abilityFiles);
-                _logger.LogInformation("Индекс построен за {Elapsed} мс: героев {H}, способностей {A}", started.ElapsedMilliseconds, Heroes.Count, Abilities.Count);
+                _logger.LogInformation("Icon index built in {Elapsed} ms: {H} heroes, {A} abilities", started.ElapsedMilliseconds, Heroes.Count, Abilities.Count);
                 TrySaveCache(cachePath, fingerprint);
             }
 
@@ -133,7 +133,7 @@ public sealed class IconIndex
     /// <summary>Turns a BGR image into a zero-mean, unit-length vector; null for flat images.</summary>
     public static float[]? ComputeDescriptor(Mat bgr)
     {
-        if (bgr.Channels() != 3) throw new ArgumentException("Ожидается 3-канальное BGR-изображение.", nameof(bgr));
+        if (bgr.Channels() != 3) throw new ArgumentException("Expected a 3-channel BGR image.", nameof(bgr));
         using var small = new Mat();
         Cv2.Resize(bgr, small, new OpenCvSharp.Size(Side, Side), 0, 0, InterpolationFlags.Area);
         using var floats = new Mat();
@@ -251,12 +251,12 @@ public sealed class IconIndex
             var abilities = ReadBank(reader);
             Heroes = heroes;
             Abilities = abilities;
-            _logger.LogInformation("Индекс иконок загружен из кэша: героев {H}, способностей {A}", heroes.Count, abilities.Count);
+            _logger.LogInformation("Icon index loaded from cache: {H} heroes, {A} abilities", heroes.Count, abilities.Count);
             return true;
         }
         catch (Exception ex) when (ex is IOException or EndOfStreamException or InvalidDataException)
         {
-            _logger.LogWarning(ex, "Кэш индекса повреждён, будет перестроен");
+            _logger.LogWarning(ex, "Icon index cache is corrupted and will be rebuilt");
             return false;
         }
     }
@@ -279,7 +279,7 @@ public sealed class IconIndex
         }
         catch (IOException ex)
         {
-            _logger.LogWarning(ex, "Не удалось сохранить кэш индекса: {Path}", path);
+            _logger.LogWarning(ex, "Failed to save icon index cache: {Path}", path);
         }
     }
 
@@ -293,7 +293,7 @@ public sealed class IconIndex
     private static IconBank ReadBank(BinaryReader reader)
     {
         var count = reader.ReadInt32();
-        if (count < 0 || count > 1_000_000) throw new InvalidDataException("Некорректный размер банка иконок.");
+        if (count < 0 || count > 1_000_000) throw new InvalidDataException("Invalid icon bank size.");
         var ids = new string[count];
         for (var i = 0; i < count; i++) ids[i] = reader.ReadString();
         var bytes = reader.ReadBytes(count * Dim * sizeof(float));
@@ -335,7 +335,7 @@ public sealed class IconIndex
         }
         catch (Exception ex) when (ex is IOException or JsonException)
         {
-            _logger.LogWarning(ex, "Не удалось прочитать названия из справочников, будут показаны идентификаторы");
+            _logger.LogWarning(ex, "Could not read names from reference data; IDs will be displayed");
         }
         _heroNames = heroNames;
         _abilityNames = abilityNames;

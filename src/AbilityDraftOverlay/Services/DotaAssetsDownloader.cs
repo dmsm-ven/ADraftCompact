@@ -45,20 +45,20 @@ public sealed class DotaAssetsDownloader
         // Test the exact API needed by the downloader, not a generic internet endpoint.
         using var request = new HttpRequestMessage(HttpMethod.Get, OpenDotaHeroes);
         using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        _logger.LogInformation("Проверка доступности OpenDota: HTTP {StatusCode}", (int)response.StatusCode);
+        _logger.LogInformation("OpenDota availability check: HTTP {StatusCode}", (int)response.StatusCode);
         if (!response.IsSuccessStatusCode) return false;
 
         var cdnProbe = new Uri($"{Cdn}dota_react/heroes/antimage.png");
         using var cdnResponse = await Http.GetAsync(cdnProbe, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        _logger.LogInformation("Проверка доступности Steam CDN: HTTP {StatusCode}", (int)cdnResponse.StatusCode);
+        _logger.LogInformation("Steam CDN availability check: HTTP {StatusCode}", (int)cdnResponse.StatusCode);
         return cdnResponse.IsSuccessStatusCode;
     }
 
     public async Task<AssetDownloadResult> DownloadAsync(Action<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Начата загрузка ресурсов Dota 2. Каталог: {AssetsRoot}", AssetsRoot);
-        progress?.Invoke($"Подготовка каталога ресурсов: {AssetsRoot}");
+        _logger.LogInformation("Dota 2 asset download started. Directory: {AssetsRoot}", AssetsRoot);
+        progress?.Invoke($"Preparing asset directory: {AssetsRoot}");
         Directory.CreateDirectory(AssetsRoot);
         var dataDirectory = Path.Combine(AssetsRoot, "data");
         Directory.CreateDirectory(dataDirectory);
@@ -66,20 +66,20 @@ public sealed class DotaAssetsDownloader
         var downloaded = 0;
         var skipped = 0;
 
-        progress?.Invoke("Получение списка героев из OpenDota...");
-        _logger.LogInformation("Запрос справочника героев: {Url}", OpenDotaHeroes);
+        progress?.Invoke("Fetching hero list from OpenDota...");
+        _logger.LogInformation("Requesting hero reference: {Url}", OpenDotaHeroes);
         using var heroesDocument = await GetJsonAsync(OpenDotaHeroes, cancellationToken);
         await SaveJsonAsync(heroesDocument.RootElement, Path.Combine(dataDirectory, "heroes.json"), cancellationToken);
 
-        _logger.LogInformation("Справочник героев получен: {Count} записей", heroesDocument.RootElement.EnumerateObject().Count());
-        progress?.Invoke("Получение списка способностей из OpenDota...");
-        _logger.LogInformation("Запрос справочника способностей: {Url}", OpenDotaAbilities);
+        _logger.LogInformation("Hero reference loaded: {Count} entries", heroesDocument.RootElement.EnumerateObject().Count());
+        progress?.Invoke("Fetching ability list from OpenDota...");
+        _logger.LogInformation("Requesting ability reference: {Url}", OpenDotaAbilities);
         using var abilitiesDocument = await GetJsonAsync(OpenDotaAbilities, cancellationToken);
         await SaveJsonAsync(abilitiesDocument.RootElement, Path.Combine(dataDirectory, "abilities.json"), cancellationToken);
 
-        _logger.LogInformation("Справочник способностей получен: {Count} записей", abilitiesDocument.RootElement.EnumerateObject().Count());
-        progress?.Invoke("Получение списка способностей героев из OpenDota...");
-        _logger.LogInformation("Запрос связей героев и способностей: {Url}", OpenDotaHeroAbilities);
+        _logger.LogInformation("Ability reference loaded: {Count} entries", abilitiesDocument.RootElement.EnumerateObject().Count());
+        progress?.Invoke("Fetching hero-ability mappings from OpenDota...");
+        _logger.LogInformation("Requesting hero-ability mappings: {Url}", OpenDotaHeroAbilities);
         using var heroAbilitiesDocument = await GetJsonAsync(OpenDotaHeroAbilities, cancellationToken);
         await SaveJsonAsync(heroAbilitiesDocument.RootElement, Path.Combine(dataDirectory, "hero_abilities.json"), cancellationToken);
 
@@ -112,8 +112,8 @@ public sealed class DotaAssetsDownloader
         var total = jobs.Count;
         var completed = 0;
         var failed = 0;
-        _logger.LogInformation("Сформирован список изображений: {Count} файлов", total);
-        progress?.Invoke($"Подготовлено изображений к проверке/загрузке: {total}...");
+        _logger.LogInformation("Image download queue created: {Count} files", total);
+        progress?.Invoke($"Prepared {total} images for download checks...");
         using var semaphore = new SemaphoreSlim(8);
         var tasks = jobs.Select(async job =>
         {
@@ -125,36 +125,34 @@ public sealed class DotaAssetsDownloader
                 {
                     case DownloadOutcome.Downloaded:
                         Interlocked.Increment(ref downloaded);
-                        _logger.LogDebug("Скачан файл: {Path}", job.Path);
                         break;
                     case DownloadOutcome.Skipped:
                         Interlocked.Increment(ref skipped);
                         break;
                     case DownloadOutcome.Missing:
                         Interlocked.Increment(ref skipped);
-                        _logger.LogDebug("Ресурс отсутствует на CDN (404/410): {Url}", job.Url);
                         break;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 Interlocked.Increment(ref failed);
-                _logger.LogWarning(ex, "Не удалось скачать ресурс {Url} в {Path}", job.Url, job.Path);
+                // Individual asset failures are counted and reported in the final summary to avoid huge logs.
             }
             finally
             {
                 semaphore.Release();
                 var current = Interlocked.Increment(ref completed);
                 if (current % 25 == 0 || current == total)
-                    progress?.Invoke($"Загрузка изображений: {current} из {total}...");
+                    progress?.Invoke($"Downloading images: {current} of {total}...");
             }
         });
 
         await Task.WhenAll(tasks);
         var result = new AssetDownloadResult(downloaded, skipped, failed);
-        _logger.LogInformation("Загрузка завершена. Новых файлов: {Downloaded}; пропущено/отсутствует: {Skipped}; ошибок: {Failed}",
+        _logger.LogInformation("Download complete. New files: {Downloaded}; skipped/missing: {Skipped}; failed: {Failed}",
             result.Downloaded, result.Skipped, result.Failed);
-        progress?.Invoke($"Завершено: новых {result.Downloaded}, пропущено/нет на CDN {result.Skipped}, ошибок {result.Failed}.");
+        progress?.Invoke($"Complete: {result.Downloaded} new, {result.Skipped} skipped/missing from CDN, {result.Failed} failed.");
         return result;
     }
 
@@ -200,7 +198,7 @@ public sealed class DotaAssetsDownloader
                 await input.CopyToAsync(output, cancellationToken);
 
             if (new FileInfo(temporaryPath).Length == 0)
-                throw new InvalidDataException($"CDN вернул пустой файл: {url}");
+                throw new InvalidDataException($"CDN returned an empty file: {url}");
             File.Move(temporaryPath, path, overwrite: true);
             return DownloadOutcome.Downloaded;
         }

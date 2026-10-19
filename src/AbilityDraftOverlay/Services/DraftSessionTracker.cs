@@ -50,7 +50,7 @@ public sealed class DraftSessionTracker
         lock (_gate)
         {
             var ended = CloseSession(now);
-            return new SessionUpdate(null, ended, false, Array.Empty<DraftPick>(), ended is null ? "Активной сессии нет." : reason);
+            return new SessionUpdate(null, ended, false, Array.Empty<DraftPick>(), ended is null ? "No active session." : reason);
         }
     }
 
@@ -61,15 +61,15 @@ public sealed class DraftSessionTracker
             if (!snapshot.BoardDetected)
             {
                 if (_session is null)
-                    return new SessionUpdate(null, null, false, Array.Empty<DraftPick>(), "Доска Ability Draft не найдена.");
+                    return new SessionUpdate(null, null, false, Array.Empty<DraftPick>(), "Ability Draft board not detected.");
 
                 _boardMisses++;
                 if (_boardMisses < EndAfterMisses)
                     return new SessionUpdate(_session, null, false, Array.Empty<DraftPick>(),
-                        $"Доска не найдена ({_boardMisses} из {EndAfterMisses} до завершения сессии).");
+                        $"Board not detected ({_boardMisses} of {EndAfterMisses} misses before session ends).");
 
                 var closed = CloseSession(now);
-                return new SessionUpdate(null, closed, false, Array.Empty<DraftPick>(), "Доска исчезла, сессия завершена.");
+                return new SessionUpdate(null, closed, false, Array.Empty<DraftPick>(), "Board disappeared; session ended.");
             }
             _boardMisses = 0;
 
@@ -77,7 +77,7 @@ public sealed class DraftSessionTracker
             DraftSession? endedSession = null;
             if (_session is not null && _session.TotalPicks >= 10 && seen.Count < _session.TotalPicks * NewGameShare)
             {
-                _logger.LogInformation("На доске {Seen} из {Total} известных выборов: это новая игра", seen.Count, _session.TotalPicks);
+                _logger.LogInformation("Board contains {Seen} of {Total} known picks; treating it as a new game", seen.Count, _session.TotalPicks);
                 endedSession = CloseSession(now);
             }
 
@@ -86,13 +86,13 @@ public sealed class DraftSessionTracker
             {
                 _session = new DraftSession { StartedAt = now };
                 started = true;
-                _logger.LogInformation("Новая сессия {Id} от {At}", _session.Id, now);
+                _logger.LogInformation("New session {Id} started at {At}", _session.Id, now);
             }
 
             var picks = Apply(_session, snapshot, seen, now);
             _store.Save(_session);
 
-            var message = $"Снимок №{_session.Captures}: новых выборов {picks.Count}, всего {_session.TotalPicks}.";
+            var message = $"Capture #{_session.Captures}: {picks.Count} new picks, {_session.TotalPicks} total.";
             return new SessionUpdate(_session, endedSession, started, picks, message);
         }
     }
@@ -106,7 +106,7 @@ public sealed class DraftSessionTracker
         if (session is null) return null;
         session.EndedAt = now;
         _store.Save(session);
-        _logger.LogInformation("Сессия {Id} завершена: снимков {Captures}, выборов {Picks}", session.Id, session.Captures, session.TotalPicks);
+        _logger.LogInformation("Session {Id} ended: {Captures} captures, {Picks} picks", session.Id, session.Captures, session.TotalPicks);
         return session;
     }
 
@@ -149,7 +149,7 @@ public sealed class DraftSessionTracker
 
                 if (item.Type == SlotType.Hero && player.Picks.Any(p => p.Type == SlotType.Hero))
                 {
-                    _logger.LogWarning("Игрок {Player}: герой уже выбран ({Old}), новое чтение {New} проигнорировано",
+                    _logger.LogWarning("Player {Player}: hero already selected ({Old}); ignoring new reading {New}",
                         player.Player, player.Picks.First(p => p.Type == SlotType.Hero).Id, item.Id);
                     continue;
                 }

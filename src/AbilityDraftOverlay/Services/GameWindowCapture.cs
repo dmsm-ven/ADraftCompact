@@ -32,37 +32,66 @@ public sealed class GameWindowCapture
         catch (Exception ex) when (ex is EntryPointNotFoundException or DllNotFoundException) { }
     }
 
+    public const string InactiveWindowStatus = "Dota 2 is not the foreground window.";
+
     public CaptureOutcome Capture(string processName)
     {
+        var foreground = GetForegroundWindow();
+        if (foreground == IntPtr.Zero || !IsProcessWindow(foreground, processName))
+            return new CaptureOutcome(null, InactiveWindowStatus, null);
+
         var window = FindGameWindow(processName);
         if (window == IntPtr.Zero)
-            return new CaptureOutcome(null, $"Окно игры не найдено: процесс {processName}.exe не запущен или у него нет окна.", null);
+            return new CaptureOutcome(null, $"Game window not found: process {processName}.exe is not running or has no window.", null);
         if (IsIconic(window))
-            return new CaptureOutcome(null, "Окно игры свёрнуто.", null);
+            return new CaptureOutcome(null, "The game window is minimized.", null);
 
         if (!GetClientRect(window, out var client) || client.Right <= 0 || client.Bottom <= 0)
-            return new CaptureOutcome(null, "Не удалось определить размер окна игры.", null);
+            return new CaptureOutcome(null, "Could not determine the game window size.", null);
         var origin = new NativePoint { X = 0, Y = 0 };
         if (!ClientToScreen(window, ref origin))
-            return new CaptureOutcome(null, "Не удалось определить положение окна игры.", null);
+            return new CaptureOutcome(null, "Could not determine the game window position.", null);
 
         var bounds = new PixelRect(origin.X, origin.Y, client.Right, client.Bottom);
         if (IsCovered(window, bounds))
-            return new CaptureOutcome(null, "Окно игры перекрыто другим окном, снимок пропущен.", bounds);
+            return new CaptureOutcome(null, "The game window is covered by another window; capture skipped.", bounds);
 
         var frame = CopyScreenRegion(bounds);
         if (frame is null)
-            return new CaptureOutcome(null, "Не удалось снять экран (BitBlt).", bounds);
+            return new CaptureOutcome(null, "Screen capture failed (BitBlt).", bounds);
 
         // A black frame means the game is in exclusive fullscreen or the capture is blocked.
         var mean = Cv2.Mean(frame);
         if (mean.Val0 + mean.Val1 + mean.Val2 < 1.0)
         {
             frame.Dispose();
-            return new CaptureOutcome(null, "Снимок полностью чёрный. Включите в Dota 2 режим «Полноэкранный без рамки» или «Окно».", bounds);
+            return new CaptureOutcome(null, "The captured frame is completely black. Set Dota 2 to Borderless Window or Windowed mode.", bounds);
         }
 
         return new CaptureOutcome(frame, $"{bounds.Width}x{bounds.Height} @ ({bounds.X},{bounds.Y})", bounds);
+    }
+
+    private static bool IsProcessWindow(IntPtr window, string processName)
+    {
+        GetWindowThreadProcessId(window, out var processId);
+        if (processId == 0) return false;
+        try
+        {
+            using var process = Process.GetProcessById((int)processId);
+            return string.Equals(process.ProcessName, processName, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
     }
 
     private IntPtr FindGameWindow(string processName)
@@ -142,7 +171,7 @@ public sealed class GameWindowCapture
         }
         catch (Exception ex) when (ex is OpenCVException or ArgumentException)
         {
-            _logger.LogWarning(ex, "Ошибка при копировании экрана");
+            _logger.LogWarning(ex, "Failed to copy screen pixels");
             return null;
         }
         finally
@@ -180,6 +209,7 @@ public sealed class GameWindowCapture
         public uint ColorsImportant;
     }
 
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);

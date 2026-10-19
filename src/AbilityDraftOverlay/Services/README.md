@@ -1,14 +1,14 @@
 # Services
 
-- `DotaAssetsDownloader` скачивает изображения героев и способностей, а также JSON-справочники OpenDota.
-- Ресурсы сохраняются в `%LocalAppData%\AbilityDraftOverlay\Assets`.
-- Загрузчик пропускает уже существующие файлы и может использоваться повторно для дозагрузки.
-- Сетевые источники: OpenDota constants API и публичный Steam CDN. При ошибке сети загрузку можно запустить повторно.
-- `IconIndex` строит и кэширует индекс дескрипторов иконок героев и способностей (`Cache\icons.index`).
-- `DraftLayoutProvider` читает раскладку слотов (`Layouts\ability_draft_1920x1080.json` или пользовательский `layout.1920x1080.json`).
-- `ScreenshotRecognitionService` распознаёт кадр по слотам раскладки и сохраняет отладочное изображение с рамками слотов.
-- `HeroNameReader` читает строку с именем героя встроенным OCR Windows, `HeroNameMatcher` нечётко сопоставляет её со списком героев.
-- `GameWindowCapture` снимает только окно игры (процесс `dota2`, любой монитор), пропуская кадр, если окно свёрнуто или перекрыто.
-- `DraftSessionTracker` ведёт сессии (GUID + дата) и порядок выбора у каждого игрока; `SessionStore` сохраняет их в `Sessions\*.json`.
-- `AutoTrackingService` по таймеру: снимок окна → распознавание → трекер.
-- `DraftReportFormatter` формирует текстовый отчёт по игрокам.
+- `DotaAssetsDownloader` downloads hero and ability images plus OpenDota JSON reference data.
+- Assets are stored under `%LocalAppData%\AbilityDraftOverlay\Assets`.
+- Existing files are skipped, so the downloader can be rerun to fetch missing assets.
+- Network sources: OpenDota constants API and the public Steam CDN. If a network request fails, retry the download later.
+- `IconIndex` builds and caches the hero and ability icon descriptor index (`Cache\icons.index`).
+- `DraftLayoutProvider` loads slot coordinates from `Layouts\ability_draft_1920x1080.json` or the user layout `layout.1920x1080.json`.
+- `ScreenshotRecognitionService` recognizes slots using the layout and saves a debug image with slot outlines.
+- `HeroNameReader` reads hero-name text using built-in Windows OCR; `HeroNameMatcher` fuzzy-matches it against the hero catalog.
+- `GameWindowCapture` captures only the game window (process `dota2`, any monitor) and skips minimized or covered windows. It does not capture unless the game is the foreground window.
+- `DraftSessionTracker` tracks sessions and each player's pick order; `SessionStore` saves sessions to `Sessions\*.json`.
+- `AutoTrackingService` runs the capture → recognition → tracking pipeline on a timer.
+- `DraftReportFormatter` formats a text report for players and picks.

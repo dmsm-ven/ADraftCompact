@@ -51,8 +51,8 @@ public sealed class AutoTrackingService
         var layout = _layouts.Load();
         if (!_heroNames.IsAvailable(layout.Matching.OcrLanguage))
             throw new InvalidOperationException(
-                $"Автоотслеживанию нужен OCR Windows для языка {layout.Matching.OcrLanguage}: по имени героя определяется, что на экране доска Ability Draft. " +
-                "Добавьте язык: Параметры → Время и язык → Язык и регион → Добавить язык → English (United States).");
+                $"Auto-tracking requires Windows OCR for {layout.Matching.OcrLanguage} to detect the Ability Draft board from hero names. " +
+                "Install English (United States) in Windows language settings.");
 
         var settings = await _settings.LoadAsync();
         var interval = TimeSpan.FromSeconds(Math.Clamp(settings.CaptureIntervalSeconds, 10, 600));
@@ -65,7 +65,7 @@ public sealed class AutoTrackingService
             var token = _cts.Token;
             _loop = Task.Run(() => RunAsync(processName, interval, token));
         }
-        _logger.LogInformation("Автоотслеживание запущено: процесс {Process}, интервал {Interval} с", processName, interval.TotalSeconds);
+        _logger.LogInformation("Auto-tracking started: process {Process}, interval {Interval}s", processName, interval.TotalSeconds);
     }
 
     public async Task StopAsync()
@@ -85,7 +85,7 @@ public sealed class AutoTrackingService
         try { if (loop is not null) await loop; }
         catch (OperationCanceledException) { }
         finally { cts.Dispose(); } // only after the loop has finished using the token
-        _logger.LogInformation("Автоотслеживание остановлено");
+        _logger.LogInformation("Auto-tracking stopped");
     }
 
     private async Task RunAsync(string processName, TimeSpan interval, CancellationToken token)
@@ -111,15 +111,18 @@ public sealed class AutoTrackingService
         try
         {
             var outcome = _capture.Capture(processName);
+            if (outcome.Status == GameWindowCapture.InactiveWindowStatus)
+                return;
+
             if (outcome.Frame is null)
             {
-                _logger.LogInformation("Снимок пропущен: {Status}", outcome.Status);
+                _logger.LogInformation("Capture skipped: {Status}", outcome.Status);
                 Publish(new TrackingTick(now, outcome.Status, null, null, IsError: false));
                 return;
             }
 
             using var frame = outcome.Frame;
-            var snapshot = _recognizer.Recognize(frame, $"окно игры {outcome.Status}", token);
+            var snapshot = _recognizer.Recognize(frame, $"game window {outcome.Status}", token);
             var update = _tracker.Process(snapshot, now);
             Publish(new TrackingTick(now, update.Message, snapshot, update, IsError: false));
         }
@@ -130,14 +133,14 @@ public sealed class AutoTrackingService
         catch (Exception ex)
         {
             // One bad capture must not stop the tracking; the next one may work.
-            _logger.LogError(ex, "Ошибка при обработке снимка");
-            Publish(new TrackingTick(now, $"Ошибка: {ex.Message}", null, null, IsError: true));
+            _logger.LogError(ex, "Failed to process capture");
+            Publish(new TrackingTick(now, $"Error: {ex.Message}", null, null, IsError: true));
         }
     }
 
     private void Publish(TrackingTick tick)
     {
         try { Ticked?.Invoke(tick); }
-        catch (Exception ex) { _logger.LogError(ex, "Ошибка в обработчике события автоотслеживания"); }
+        catch (Exception ex) { _logger.LogError(ex, "Auto-tracking event handler failed"); }
     }
 }

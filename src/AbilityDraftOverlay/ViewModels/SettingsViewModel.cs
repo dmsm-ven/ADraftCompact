@@ -17,7 +17,7 @@ public partial class SettingsViewModel(ISettingsService settingsService) : Obser
     private int targetScreenHeight = 1080;
 
     [ObservableProperty]
-    private string statusText = "Настройки ещё не загружены.";
+    private string statusText = "Settings have not been loaded yet.";
 
     [RelayCommand]
     public async Task LoadAsync()
@@ -26,7 +26,7 @@ public partial class SettingsViewModel(ISettingsService settingsService) : Obser
         Theme = settings.Theme;
         TargetScreenWidth = settings.TargetScreenWidth;
         TargetScreenHeight = settings.TargetScreenHeight;
-        StatusText = "Настройки загружены.";
+        StatusText = "Settings loaded.";
     }
 
     [RelayCommand]
@@ -37,6 +37,6 @@ public partial class SettingsViewModel(ISettingsService settingsService) : Obser
         settings.TargetScreenWidth = TargetScreenWidth;
         settings.TargetScreenHeight = TargetScreenHeight;
         await settingsService.SaveAsync(settings);
-        StatusText = "Настройки сохранены.";
+        StatusText = "Settings saved.";
     }
 }
