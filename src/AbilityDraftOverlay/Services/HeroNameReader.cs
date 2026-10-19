@@ -1,7 +1,7 @@
-using System.Runtime.InteropServices;
-using AbilityDraftOverlay.Models;
+﻿using AbilityDraftOverlay.Models;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
+using System.Runtime.InteropServices;
 using Windows.Globalization;
 using Windows.Graphics.Imaging;
 using Windows.Media.Ocr;
@@ -49,7 +49,7 @@ public sealed class HeroNameReader
             lines = Recognize(engine, whole);
         }
 
-        if (_logger.IsEnabled(LogLevel.Debug))
+        if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
             _logger.LogDebug("OCR имени героя @({X},{Y}): {Lines}", band.X, band.Y, string.Join(" | ", lines));
         return lines;
     }
