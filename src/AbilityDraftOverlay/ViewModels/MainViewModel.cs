@@ -1,4 +1,5 @@
-﻿using AbilityDraftOverlay.Models;
+using AbilityDraftOverlay.Models;
+using AbilityDraftOverlay.Views;
 using AbilityDraftOverlay.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,80 +14,75 @@ namespace AbilityDraftOverlay.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     private readonly DotaAssetsDownloader _assetsDownloader;
-    private readonly ScreenshotRecognitionService _recognizer;
     private readonly DraftSessionTracker _tracker;
     private readonly AutoTrackingService _autoTracking;
     private string? _lastTickStatus;
     private readonly IconIndex _iconIndex;
     private readonly ILogger<MainViewModel> _logger;
+    private readonly OverlayWindow _overlayWindow;
+    private readonly OverlaySettingsService _overlaySettingsService;
+    [ObservableProperty] private bool isOverlayVisible;
 
     [ObservableProperty] private string statusText = "Готово.";
-    [ObservableProperty] private string? currentFramePath;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string resourceSummary = "Ресурсы: проверка...";
     [ObservableProperty] private bool isTracking;
     [ObservableProperty] private string sessionText = "Сессия: нет";
     public ObservableCollection<DraftEvent> Events { get; } = new();
-    public bool CanRecognize => !IsBusy && !IsTracking && !string.IsNullOrWhiteSpace(CurrentFramePath);
-    public string TrackingButtonText => IsTracking ? "■ Остановить автоотслеживание" : "▶ Запустить автоотслеживание";
+    public string TrackingButtonText => IsTracking ? "■ Остановить отслеживание" : "▶ Отслеживать";
+    public string OverlayButtonText => IsOverlayVisible ? "▣ Скрыть оверлей" : "▣ Показать оверлей";
 
-    public MainViewModel(DotaAssetsDownloader assetsDownloader, ScreenshotRecognitionService recognizer,
-        DraftSessionTracker tracker, AutoTrackingService autoTracking, IconIndex iconIndex, ILogger<MainViewModel> logger)
+    public MainViewModel(DotaAssetsDownloader assetsDownloader,
+        DraftSessionTracker tracker, AutoTrackingService autoTracking, IconIndex iconIndex, OverlayWindow overlayWindow, OverlaySettingsService overlaySettingsService, ILogger<MainViewModel> logger)
     {
         _assetsDownloader = assetsDownloader;
-        _recognizer = recognizer;
         _tracker = tracker;
         _autoTracking = autoTracking;
         _autoTracking.Ticked += OnTick;
         _iconIndex = iconIndex;
         _logger = logger;
+        _overlayWindow = overlayWindow;
+        _overlaySettingsService = overlaySettingsService;
+        _ = LoadOverlaySettingsAsync();
+        _overlayWindow.UpdateSession(_tracker.Current);
+        _overlayWindow.Closed += (_, _) => { IsOverlayVisible = false; OnPropertyChanged(nameof(OverlayButtonText)); };
         UpdateResourceSummary();
     }
 
-    partial void OnCurrentFramePathChanged(string? value) => OnPropertyChanged(nameof(CanRecognize));
-    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(CanRecognize));
     partial void OnIsTrackingChanged(bool value)
     {
-        OnPropertyChanged(nameof(CanRecognize));
         OnPropertyChanged(nameof(TrackingButtonText));
     }
 
-    public void SetFrame(string path)
+    [RelayCommand]
+    private void ToggleOverlay()
     {
-        CurrentFramePath = path;
-        StatusText = $"Выбран кадр: {Path.GetFileName(path)}";
-        AddEvent(DraftEventKind.Frame, path, StatusText);
+        if (IsOverlayVisible)
+        {
+            _overlayWindow.Hide();
+            IsOverlayVisible = false;
+        }
+        else
+        {
+            _overlayWindow.UpdateSession(_tracker.Current);
+            if (!_overlayWindow.IsVisible) _overlayWindow.Show();
+            IsOverlayVisible = true;
+        }
+        OnPropertyChanged(nameof(OverlayButtonText));
+    }
+
+    private async Task LoadOverlaySettingsAsync()
+    {
+        var settings = await _overlaySettingsService.LoadAsync();
+        await Application.Current.Dispatcher.InvokeAsync(() => _overlayWindow.ApplySettings(settings));
     }
 
     [RelayCommand]
-    private async Task RecognizeScreenshotAsync()
+    private void OpenOverlaySettings()
     {
-        if (IsBusy || string.IsNullOrWhiteSpace(CurrentFramePath)) return;
-        IsBusy = true;
-        AddEvent(DraftEventKind.Resource, "recognition", "Начато распознавание скриншота по слотам драфта.");
-        try
-        {
-            StatusText = "Распознавание скриншота...";
-            var snapshot = await _recognizer.RecognizeAsync(CurrentFramePath);
-            var update = _tracker.Process(snapshot, DateTimeOffset.Now);
-            ShowUpdate(snapshot, update);
-
-            var recognized = snapshot.Slots.Count(s => s.State == SlotState.Recognized);
-            var uncertain = snapshot.Slots.Count(s => s.State == SlotState.Uncertain);
-            var empty = snapshot.Slots.Count(s => s.State == SlotState.Empty);
-            StatusText = snapshot.BoardDetected
-                ? $"Готово за {snapshot.Elapsed.TotalMilliseconds:F0} мс: распознано {recognized}, неуверенно {uncertain}, пусто {empty}; новых выборов {update.NewPicks.Count}; герои: {(snapshot.HeroSource == "ocr" ? "по имени (OCR)" : "по картинкам")}."
-                : "На кадре не найдена доска Ability Draft.";
-            AddEvent(snapshot.BoardDetected ? DraftEventKind.Resource : DraftEventKind.Error, "recognition-summary", StatusText);
-            _logger.LogInformation("{StatusText}", StatusText);
-        }
-        catch (Exception ex)
-        {
-            StatusText = $"Ошибка распознавания: {ex.Message}";
-            AddEvent(DraftEventKind.Error, "recognition", StatusText);
-            _logger.LogError(ex, "Ошибка распознавания скриншота");
-        }
-        finally { IsBusy = false; }
+        var window = new OverlaySettingsWindow(_overlayWindow, _overlaySettingsService) { Owner = Application.Current.MainWindow };
+        window.ShowDialog();
+        OnPropertyChanged(nameof(OverlayButtonText));
     }
 
     [RelayCommand]
@@ -192,6 +188,7 @@ public partial class MainViewModel : ObservableObject
         SessionText = update.Session is { } session
             ? $"Сессия {session.Id} · с {session.StartedAt:dd.MM HH:mm:ss} · снимков {session.Captures} · выборов {session.TotalPicks}"
             : "Сессия: нет";
+        _overlayWindow.UpdateSession(update.Session);
     }
 
     [RelayCommand]
@@ -200,6 +197,7 @@ public partial class MainViewModel : ObservableObject
         Events.Clear();
         _tracker.EndSession(DateTimeOffset.Now, "Журнал очищен"); // the next recognized board starts a new session
         SessionText = "Сессия: нет";
+        _overlayWindow.UpdateSession(null);
     }
 
     public void UpdateResourceSummary()

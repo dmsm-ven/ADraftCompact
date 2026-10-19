@@ -51,6 +51,8 @@ public partial class App : Application
                 services.AddSingleton<GameWindowCapture>();
                 services.AddSingleton<AutoTrackingService>();
                 services.AddSingleton<ScreenshotRecognitionService>();
+                services.AddSingleton<OverlayWindow>();
+                services.AddSingleton<OverlaySettingsService>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })
