@@ -83,7 +83,7 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
     public void ApplySettings(OverlaySettings settings)
     {
         Settings = settings;
-        if (Settings.Left >= 0 && Settings.Top >= 0) { Left = Settings.Left; Top = Settings.Top; }
+        if (!_positionEditMode && Settings.Left >= 0 && Settings.Top >= 0) { Left = Settings.Left; Top = Settings.Top; }
         UpdateSize();
         NotifySettingsChanged();
     }

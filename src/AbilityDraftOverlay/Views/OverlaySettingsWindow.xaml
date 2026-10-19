@@ -1,11 +1,12 @@
 <Window x:Class="AbilityDraftOverlay.Views.OverlaySettingsWindow"
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Настройки оверлея" Width="510" Height="690" MinWidth="480" MinHeight="620"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Настройки оверлея" Width="500" Height="650" MinWidth="460" MinHeight="580"
     WindowStartupLocation="CenterOwner" Background="#FF171A21" Foreground="#FFF2F4F8" FontFamily="Segoe UI">
     <Window.Resources>
         <Style TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Margin" Value="0,3,8,3"/></Style>
         <Style TargetType="Button"><Setter Property="Padding" Value="10,5"/><Setter Property="Background" Value="#FF303744"/><Setter Property="Foreground" Value="#FFF2F4F8"/><Setter Property="BorderBrush" Value="#FF485263"/></Style>
-        <Style TargetType="Slider"><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Minimum" Value="0"/><Setter Property="Margin" Value="0,2"/></Style>
+        <Style TargetType="Slider"><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Margin" Value="0,2"/></Style>
     </Window.Resources>
     <Grid Margin="12">
         <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -13,33 +14,33 @@
             <StackPanel>
                 <TextBlock FontSize="15" FontWeight="SemiBold" Text="Позиция" Margin="0,0,0,5"/>
                 <DockPanel Margin="0,0,0,8">
-                    <Button DockPanel.Dock="Right" Click="PositionButton_Click" Content="Переместить оверлей"/>
+                    <Button x:Name="PositionButton" DockPanel.Dock="Right" Click="PositionButton_Click" Content="Переместить оверлей"/>
                     <TextBlock x:Name="PositionStatus" Text="Позиция сохранена" Foreground="#FFB5C0D0"/>
                 </DockPanel>
                 <TextBlock FontSize="15" FontWeight="SemiBold" Text="Внешний вид" Margin="0,5,0,4"/>
                 <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="*"/><ColumnDefinition Width="64"/></Grid.ColumnDefinitions>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="165"/><ColumnDefinition Width="*"/><ColumnDefinition Width="58"/></Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Цвет фона"/><TextBox x:Name="OverlayColorText" Grid.Row="0" Grid.Column="1" Margin="0,3" Padding="4" Text="#FF171A21"/><Button Grid.Row="0" Grid.Column="2" Margin="4,2,0,2" Click="OverlayColorButton_Click" Content="Выбрать"/>
-                    <TextBlock Grid.Row="1" Text="Непрозрачность"/><Slider x:Name="OpacitySlider" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="100" Value="0" TickFrequency="1" IsSnapToTickEnabled="True"/><TextBlock x:Name="OpacityValue" Grid.Row="1" Grid.Column="2" Text="0%" TextAlignment="Right"/>
+                    <TextBlock Grid.Row="0" Text="Цвет фона"/><Button x:Name="OverlayColorButton" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" HorizontalAlignment="Left" Width="88" Height="26" Margin="0,3" Click="OverlayColorButton_Click" Content="Выбрать цвет"/>
+                    <TextBlock Grid.Row="1" Text="Непрозрачность фона"/><Slider x:Name="OpacitySlider" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="100" Value="0" TickFrequency="1" IsSnapToTickEnabled="True"/><TextBlock x:Name="OpacityValue" Grid.Row="1" Grid.Column="2" Text="0%" TextAlignment="Right"/>
                     <TextBlock Grid.Row="2" Text="Размер иконок"/><Slider x:Name="IconSizeSlider" Grid.Row="2" Grid.Column="1" Minimum="15" Maximum="180" Value="40" TickFrequency="5" IsSnapToTickEnabled="True"/><TextBlock x:Name="IconSizeValue" Grid.Row="2" Grid.Column="2" Text="40 px" TextAlignment="Right"/>
-                    <TextBlock Grid.Row="3" Text="Цвет рамки иконок"/><TextBox x:Name="BorderColorText" Grid.Row="3" Grid.Column="1" Margin="0,3" Padding="4" Text="#FF343A43"/><Button Grid.Row="3" Grid.Column="2" Margin="4,2,0,2" Click="BorderColorButton_Click" Content="Выбрать"/>
+                    <TextBlock Grid.Row="3" Text="Цвет рамки иконок"/><Button x:Name="BorderColorButton" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" HorizontalAlignment="Left" Width="88" Height="26" Margin="0,3" Click="BorderColorButton_Click" Content="Выбрать цвет"/>
                     <TextBlock Grid.Row="4" Text="Толщина рамки"/><Slider x:Name="BorderSizeSlider" Grid.Row="4" Grid.Column="1" Minimum="0" Maximum="8" Value="1" TickFrequency="1" IsSnapToTickEnabled="True"/><TextBlock x:Name="BorderSizeValue" Grid.Row="4" Grid.Column="2" Text="1 px" TextAlignment="Right"/>
-                    <TextBlock Grid.Row="5" Text="Интервал между ROW"/><Slider x:Name="RowGapSlider" Grid.Row="5" Grid.Column="1" Maximum="80" Value="4" TickFrequency="1" IsSnapToTickEnabled="True"/><TextBlock x:Name="RowGapValue" Grid.Row="5" Grid.Column="2" Text="4 px" TextAlignment="Right"/>
+                    <TextBlock Grid.Row="5" Text="Интервал между игроками"/><Slider x:Name="RowGapSlider" Grid.Row="5" Grid.Column="1" Maximum="80" Value="4" TickFrequency="1" IsSnapToTickEnabled="True"/><TextBlock x:Name="RowGapValue" Grid.Row="5" Grid.Column="2" Text="4 px" TextAlignment="Right"/>
                     <TextBlock Grid.Row="6" Text="Отступ после героя"/><Slider x:Name="HeroGapSlider" Grid.Row="6" Grid.Column="1" Maximum="40" Value="4" TickFrequency="1" IsSnapToTickEnabled="True"/><TextBlock x:Name="HeroGapValue" Grid.Row="6" Grid.Column="2" Text="4 px" TextAlignment="Right"/>
                     <TextBlock Grid.Row="7" Text="Интервал способностей"/><Slider x:Name="AbilityGapSlider" Grid.Row="7" Grid.Column="1" Maximum="40" Value="4" TickFrequency="1" IsSnapToTickEnabled="True"/><TextBlock x:Name="AbilityGapValue" Grid.Row="7" Grid.Column="2" Text="4 px" TextAlignment="Right"/>
                     <TextBlock Grid.Row="8" Text="Между командами"/><Slider x:Name="TeamGapSlider" Grid.Row="8" Grid.Column="1" Maximum="400" Value="30" TickFrequency="5" IsSnapToTickEnabled="True"/><TextBlock x:Name="TeamGapValue" Grid.Row="8" Grid.Column="2" Text="30 px" TextAlignment="Right"/>
                     <CheckBox x:Name="ShowNamesCheckBox" Grid.Row="9" Grid.ColumnSpan="3" Margin="0,7,0,4" Content="Показывать названия Radiant / Dire"/>
                 </Grid>
-                <TextBlock Margin="0,10,0,0" Foreground="#FF9EA9BA" FontSize="11" TextWrapping="Wrap" Text="Для выбора произвольного цвета можно указать HEX-код (#AARRGGBB или #RRGGBB) либо открыть палитру. Изменения применяются после сохранения."/>
+                <TextBlock Margin="0,10,0,0" Foreground="#FF9EA9BA" FontSize="11" TextWrapping="Wrap" Text="Изменения сразу отображаются в оверлее. Параметры записываются в файл при закрытии этого окна."/>
             </StackPanel>
         </ScrollViewer>
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Margin="0,0,8,0" Click="CancelButton_Click" Content="Отмена"/><Button Click="SaveButton_Click" Content="Сохранить" MinWidth="100" Background="#FF256D55"/>
+            <Button Click="CloseButton_Click" Content="Закрыть" MinWidth="90"/>
         </StackPanel>
     </Grid>
 </Window>
