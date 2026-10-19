@@ -1,3 +1,5 @@
+﻿using AbilityDraftOverlay.Models;
+using AbilityDraftOverlay.Services;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -6,9 +8,6 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using AbilityDraftOverlay.Models;
-using AbilityDraftOverlay.Services;
-using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AbilityDraftOverlay.Views;
 
@@ -19,10 +18,27 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
     private const int WsExToolWindow = 0x00000080;
     private const int WsExNoActivate = 0x08000000;
     private const int WsExLayered = 0x00080000;
+    private const int WmNcLButtonDown = 0x00A1;
+    private const int HtCaption = 2;
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoZOrder = 0x0004;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpFrameChanged = 0x0020;
     private bool _positionEditMode;
     private bool _clickThroughEnabled;
-    private Point _dragStart;
-    private double _dragLeft, _dragTop;
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
@@ -42,7 +58,9 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
     public Thickness AbilityMargin => new(0, 0, Settings.AbilityGap, 0);
     public bool ShowTeamNames => Settings.ShowTeamNames;
     public Visibility TeamNamesVisibility => ShowTeamNames ? Visibility.Visible : Visibility.Collapsed;
-    public Brush OverlayBackground => new SolidColorBrush(Color.FromArgb((byte)Math.Clamp(Settings.OverlayOpacityPercent * 255 / 100, 0, 255), ParseColor(Settings.OverlayColorHex).R, ParseColor(Settings.OverlayColorHex).G, ParseColor(Settings.OverlayColorHex).B));
+    public Brush OverlayBackground => _positionEditMode
+        ? new SolidColorBrush(Color.FromArgb(75, 20, 150, 220))
+        : new SolidColorBrush(Color.FromArgb((byte)Math.Clamp(Settings.OverlayOpacityPercent * 255 / 100, 0, 255), ParseColor(Settings.OverlayColorHex).R, ParseColor(Settings.OverlayColorHex).G, ParseColor(Settings.OverlayColorHex).B));
     public Brush IconBorderBrush => new SolidColorBrush(ParseColor(Settings.IconBorderColorHex));
     public Thickness IconBorderThickness => new(Settings.IconBorderThickness);
     public Brush OverlayBorderBrush => _positionEditMode ? Brushes.DeepSkyBlue : Brushes.Transparent;
@@ -60,24 +78,27 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
         }
         Left = Math.Max(0, SystemParameters.PrimaryScreenWidth - Width - 18);
         Top = Math.Max(0, (SystemParameters.PrimaryScreenHeight - Height) / 2);
-        SourceInitialized += (_, _) => SetClickThrough(true);
-        MouseLeftButtonDown += (_, e) =>
+        SourceInitialized += (_, _) =>
         {
-            if (!_positionEditMode) return;
-            _dragStart = e.GetPosition(null);
-            _dragLeft = Left; _dragTop = Top;
-            CaptureMouse();
+            SetClickThrough(true);
+            SetNoActivate(true);
         };
-        MouseMove += (_, e) =>
+
+        PreviewMouseLeftButtonDown += (_, e) =>
         {
-            if (_positionEditMode && IsMouseCaptured && e.LeftButton == System.Windows.Input.MouseButtonState.Pressed)
-            {
-                var pos = e.GetPosition(null);
-                Left = Math.Max(0, _dragLeft + pos.X - _dragStart.X);
-                Top = Math.Max(0, _dragTop + pos.Y - _dragStart.Y);
-            }
+            if (!_positionEditMode || e.ChangedButton != System.Windows.Input.MouseButton.Left)
+                return;
+
+            e.Handled = true;
+            var handle = new WindowInteropHelper(this).Handle;
+            if (handle == IntPtr.Zero)
+                return;
+
+            // Просим Windows перемещать окно как обычное окно за заголовок.
+            // Это надёжнее DragMove для прозрачного WPF overlay.
+            ReleaseCapture();
+            SendMessage(handle, WmNcLButtonDown, (IntPtr)HtCaption, IntPtr.Zero);
         };
-        MouseLeftButtonUp += (_, _) => { if (IsMouseCaptured) ReleaseMouseCapture(); };
     }
 
     public void ApplySettings(OverlaySettings settings)
@@ -90,20 +111,33 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
 
     public void BeginPositionEdit()
     {
-        if (!IsVisible) Show();
+        if (!IsVisible)
+            Show();
+
         _positionEditMode = true;
+
+        // Разрешаем взаимодействие с окном.
         SetClickThrough(false);
-        Background = new SolidColorBrush(Color.FromArgb(65, 20, 150, 220));
+        SetNoActivate(false);
+
         NotifySettingsChanged();
+
         Activate();
     }
 
     public void EndPositionEdit(bool savePosition)
     {
-        if (savePosition) { Settings.Left = Left; Settings.Top = Top; }
+        if (savePosition)
+        {
+            Settings.Left = Left;
+            Settings.Top = Top;
+        }
+
         _positionEditMode = false;
-        Background = Brushes.Transparent;
+
         SetClickThrough(true);
+        SetNoActivate(true);
+
         NotifySettingsChanged();
     }
 
@@ -118,7 +152,7 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
     private void UpdateSize()
     {
         var width = Settings.IconSize * 5 + Settings.HeroGap + Settings.AbilityGap * 3 + Settings.IconBorderThickness * 10 + 8;
-        var height = Settings.IconSize * 10 + Settings.PlayerRowGap * 8 + Settings.TeamGap + (Settings.ShowTeamNames ? 32 : 0) + 12;
+        var height = Settings.IconSize * 10 + Settings.PlayerRowGap * 10 + Settings.TeamGap + (Settings.ShowTeamNames ? 32 : 0) + 12;
         Width = Math.Max(80, width);
         Height = Math.Max(80, height);
     }
@@ -129,10 +163,42 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
         var handle = new WindowInteropHelper(this).Handle;
         if (handle == IntPtr.Zero) return;
         var style = GetWindowLongPtr(handle, GwlExStyle).ToInt64();
-        style |= WsExToolWindow | WsExNoActivate | WsExLayered;
-        if (enabled) style |= WsExTransparent; else style &= ~WsExTransparent;
+        style |= WsExToolWindow | WsExLayered;
+        if (enabled)
+            style |= WsExTransparent;
+        else
+            style &= ~WsExTransparent;
+
         SetWindowLongPtr(handle, GwlExStyle, new IntPtr(style));
+        RefreshWindowStyles(handle);
         _clickThroughEnabled = enabled;
+    }
+
+    private void SetNoActivate(bool enabled)
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+
+        if (handle == IntPtr.Zero)
+            return;
+
+        var style = GetWindowLongPtr(handle, GwlExStyle).ToInt64();
+
+        if (enabled)
+            style |= WsExNoActivate;
+        else
+            style &= ~WsExNoActivate;
+
+        SetWindowLongPtr(handle, GwlExStyle, new IntPtr(style));
+        RefreshWindowStyles(handle);
+    }
+
+    private static void RefreshWindowStyles(IntPtr handle)
+    {
+        SetWindowPos(
+            handle,
+            IntPtr.Zero,
+            0, 0, 0, 0,
+            SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
     }
 
     private void NotifySettingsChanged()
