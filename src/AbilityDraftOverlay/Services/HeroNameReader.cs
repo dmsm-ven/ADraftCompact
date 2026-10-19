@@ -34,17 +34,31 @@ public sealed class HeroNameReader
         if (engine is null) return Array.Empty<string>();
 
         using var crop = new Mat(screenshot, new Rect(band.X, band.Y, band.Width, band.Height));
-        using var prepared = Prepare(crop);
-        var lines = Recognize(engine, prepared);
+        using var binary = Binarize(crop);
+
+        // 1) Only letter-sized shapes, cropped tightly around the text. Bright parts of the animated art next to
+        //    the name (it was a black blob beside "BANE") otherwise make Windows OCR return nothing.
+        IReadOnlyList<string> lines = Array.Empty<string>();
+        using (var cleaned = BuildCleaned(binary, band.Height))
+            if (cleaned is not null) lines = Recognize(engine, cleaned);
+
+        // 2) Fallback: the whole band as is.
+        if (lines.Count == 0)
+        {
+            using var whole = BuildWhole(binary);
+            lines = Recognize(engine, whole);
+        }
+
         if (_logger.IsEnabled(LogLevel.Debug))
             _logger.LogDebug("OCR имени героя @({X},{Y}): {Lines}", band.X, band.Y, string.Join(" | ", lines));
         return lines;
     }
 
-    /// <summary>BGR crop -> upscaled, binarized, inverted (black text on white) BGRA image.</summary>
-    private static Mat Prepare(Mat bgr)
+    private const int Scale = 4;
+
+    /// <summary>BGR crop -> upscaled binary mask where the (saturated, bright) text is white.</summary>
+    private static Mat Binarize(Mat bgr)
     {
-        const int scale = 4;
         using var floats = new Mat();
         bgr.ConvertTo(floats, MatType.CV_32FC3);
         var channels = Cv2.Split(floats);
@@ -66,22 +80,63 @@ public sealed class HeroNameReader
             score.ConvertTo(score8, MatType.CV_8UC1); // saturates to 0..255
 
             using var big = new Mat();
-            Cv2.Resize(score8, big, new OpenCvSharp.Size(score8.Width * scale, score8.Height * scale), 0, 0, InterpolationFlags.Cubic);
+            Cv2.Resize(score8, big, new OpenCvSharp.Size(score8.Width * Scale, score8.Height * Scale), 0, 0, InterpolationFlags.Cubic);
             Cv2.GaussianBlur(big, big, new OpenCvSharp.Size(3, 3), 0);
-            using var binary = new Mat();
+            var binary = new Mat();
             Cv2.Threshold(big, binary, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
-            Cv2.BitwiseNot(binary, binary);
-
-            using var padded = new Mat();
-            Cv2.CopyMakeBorder(binary, padded, 12, 12, 12, 12, BorderTypes.Constant, Scalar.All(255));
-            var bgra = new Mat();
-            Cv2.CvtColor(padded, bgra, ColorConversionCodes.GRAY2BGRA);
-            return bgra;
+            return binary;
         }
         finally
         {
             foreach (var channel in channels) channel.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Keeps only letter-like components (height 25-80% of the band, not wider than a letter, on the common text row),
+    /// crops to them and returns black text on white (BGRA). Null if nothing letter-like was found.
+    /// </summary>
+    private static Mat? BuildCleaned(Mat binary, int bandHeight)
+    {
+        var h = bandHeight * Scale;
+        Cv2.FindContours(binary, out var contours, out _, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+        var letters = contours.Select(contour => Cv2.BoundingRect(contour))
+            .Where(r => r.Height >= 0.25 * h && r.Height <= 0.8 * h && r.Width <= 1.6 * r.Height + 4 && r.Width >= 0.04 * h)
+            .ToList();
+        if (letters.Count == 0) return null;
+
+        var centers = letters.Select(r => r.Y + r.Height / 2.0).OrderBy(v => v).ToArray();
+        var median = centers[centers.Length / 2];
+        letters = letters.Where(r => Math.Abs(r.Y + r.Height / 2.0 - median) <= 0.3 * h).ToList();
+        if (letters.Count == 0) return null;
+
+        using var clean = Mat.Zeros(binary.Size(), MatType.CV_8UC1).ToMat();
+        foreach (var rect in letters)
+        {
+            using var source = new Mat(binary, rect);
+            using var target = new Mat(clean, rect);
+            source.CopyTo(target);
+        }
+
+        var x0 = letters.Min(r => r.X);
+        var y0 = letters.Min(r => r.Y);
+        var x1 = letters.Max(r => r.X + r.Width);
+        var y1 = letters.Max(r => r.Y + r.Height);
+        using var tight = new Mat(clean, new Rect(x0, y0, x1 - x0, y1 - y0));
+        return ToBlackOnWhiteBgra(tight, 24);
+    }
+
+    private static Mat BuildWhole(Mat binary) => ToBlackOnWhiteBgra(binary, 12);
+
+    private static Mat ToBlackOnWhiteBgra(Mat whiteText, int border)
+    {
+        using var inverted = new Mat();
+        Cv2.BitwiseNot(whiteText, inverted);
+        using var padded = new Mat();
+        Cv2.CopyMakeBorder(inverted, padded, border, border, border, border, BorderTypes.Constant, Scalar.All(255));
+        var bgra = new Mat();
+        Cv2.CvtColor(padded, bgra, ColorConversionCodes.GRAY2BGRA);
+        return bgra;
     }
 
     private IReadOnlyList<string> Recognize(OcrEngine engine, Mat bgra)
