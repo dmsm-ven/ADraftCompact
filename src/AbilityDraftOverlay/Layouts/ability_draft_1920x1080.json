@@ -58,8 +58,10 @@
   "matching": {
     "minScore": 0.55,          // not validated on real icons; tune using scores in the debug image
     "minMargin": 0.10,
-    "emptyInset": 6,           // checked against a screenshot: empty abilities mean <= 13, filled abilities >= 67
-    "abilityEmptyMaxMean": 35,
+    "emptyInset": 6,
+    // An ability slot is empty when its center is flat (pooled std-dev below this). Brightness is NOT used:
+    // dark icons would be taken for empty slots. Empty boxes measure ~5-20, real icons 35+; the debug image prints "s=" per empty slot.
+    "abilityEmptyMaxStdDev": 25,
     "heroEmptyMaxStdDev": 40,  // checked against a screenshot: "NO HERO" std 15-29, real artwork 50-67
     "inset": 3,
     "shiftPx": 2,

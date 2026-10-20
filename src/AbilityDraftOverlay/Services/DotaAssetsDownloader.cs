@@ -115,6 +115,9 @@ public sealed class DotaAssetsDownloader
         _logger.LogInformation("Image download queue created: {Count} files", total);
         progress?.Invoke($"Prepared {total} images for download checks...");
         using var semaphore = new SemaphoreSlim(8);
+        // Abilities that exist in the reference data but have no modern icon on the CDN (new patch, rename): they can never be recognized.
+        var missingModern = new System.Collections.Concurrent.ConcurrentBag<string>();
+        var modernDirectory = Path.Combine(AssetsRoot, "abilities", "modern");
         var tasks = jobs.Select(async job =>
         {
             await semaphore.WaitAsync(cancellationToken);
@@ -131,6 +134,12 @@ public sealed class DotaAssetsDownloader
                         break;
                     case DownloadOutcome.Missing:
                         Interlocked.Increment(ref skipped);
+                        if (string.Equals(Path.GetDirectoryName(job.Path), modernDirectory, StringComparison.OrdinalIgnoreCase))
+                        {
+                            var id = Path.GetFileNameWithoutExtension(job.Path);
+                            if (!IconIndex.ExcludedAbilityPrefixes.Any(p => id.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+                                missingModern.Add(id);
+                        }
                         break;
                 }
             }
@@ -149,6 +158,9 @@ public sealed class DotaAssetsDownloader
         });
 
         await Task.WhenAll(tasks);
+        if (!missingModern.IsEmpty)
+            _logger.LogWarning("{Count} abilities have no modern icon on the CDN (they will rely on the legacy icon or not be recognized at all): {Ids}",
+                missingModern.Count, string.Join(", ", missingModern.OrderBy(x => x, StringComparer.Ordinal).Take(80)));
         var result = new AssetDownloadResult(downloaded, skipped, failed);
         _logger.LogInformation("Download complete. New files: {Downloaded}; skipped/missing: {Skipped}; failed: {Failed}",
             result.Downloaded, result.Skipped, result.Failed);

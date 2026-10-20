@@ -32,8 +32,13 @@ public sealed class MatchingOptions
     public double MinMargin { get; set; } = 0.10;
     /// <summary>Pixels trimmed from every side of the slot before the emptiness test (skips frame and rounded corners).</summary>
     public int EmptyInset { get; set; } = 6;
-    /// <summary>An ability slot is empty when its center is almost black: mean brightness (0..255) below this.</summary>
+    /// <summary>Obsolete: brightness is no longer used for the emptiness test (dark icons were mistaken for empty slots). Kept so old layout files still load.</summary>
     public double AbilityEmptyMaxMean { get; set; } = 35.0;
+    /// <summary>
+    /// An ability slot is empty when the pooled std-dev of its center pixels (all channels, 0..255) is below this.
+    /// An empty box is a flat dark square (std ~5-20); any real icon has texture (std 35+), even a very dark one.
+    /// </summary>
+    public double AbilityEmptyMaxStdDev { get; set; } = 25.0;
     /// <summary>The hero area is empty ("NO HERO" silhouette) when its per-channel std-dev is below this.</summary>
     public double HeroEmptyMaxStdDev { get; set; } = 40.0;
     /// <summary>Pixels trimmed from every side of a slot before matching (frames, borders, glow).</summary>

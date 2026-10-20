@@ -76,7 +76,7 @@ public sealed class IconIndex
     public const int Dim = Side * Side * 3;
 
     private const int CacheVersion = 1;
-    private static readonly string[] ExcludedAbilityPrefixes = { "special_bonus", "generic_hidden", "attribute_bonus" };
+    internal static readonly string[] ExcludedAbilityPrefixes = { "special_bonus", "generic_hidden", "attribute_bonus" };
 
     private readonly ILogger<IconIndex> _logger;
     private readonly object _gate = new();

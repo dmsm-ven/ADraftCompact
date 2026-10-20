@@ -98,6 +98,11 @@ public sealed class ScreenshotRecognitionService
             final.Count(r => r.State == SlotState.Recognized), final.Count(r => r.State == SlotState.Uncertain),
             final.Count(r => r.State == SlotState.Empty), (long)total.Elapsed.TotalMilliseconds, (long)indexTime.TotalMilliseconds);
 
+        var uncertain = final.Where(r => r.State == SlotState.Uncertain).ToArray();
+        if (uncertain.Length > 0)
+            _logger.LogInformation("Uncertain slots: {Slots}", string.Join("; ", uncertain.Select(r =>
+                $"P{r.Slot.Player}{(r.Slot.Type == SlotType.Hero ? "H" : "A" + r.Slot.Index)} {r.EntityId} {r.Score:0.00} m{r.Margin:0.00} vs {r.RunnerUpId}")));
+
         return new DraftSnapshot(final, total.Elapsed, indexTime, layout.Calibrated, debugPath, heroSource, boardDetected);
     }
 
@@ -148,8 +153,8 @@ public sealed class ScreenshotRecognitionService
         var baseX = roi.X + inset;
         var baseY = roi.Y + inset;
 
-        if (IsEmpty(screenshot, roi, slot.Type, options))
-            return new SlotResult(slot, SlotState.Empty, null, null, 0, 0, null);
+        if (IsEmpty(screenshot, roi, slot.Type, options, out var emptyStats))
+            return new SlotResult(slot, SlotState.Empty, null, null, 0, 0, null, emptyStats);
 
         var bank = slot.Type == SlotType.Hero ? _index.Heroes : _index.Abilities;
         var best = new SearchHit(null, float.MinValue, null, -1f);
@@ -171,12 +176,15 @@ public sealed class ScreenshotRecognitionService
     }
 
     /// <summary>
-    /// Emptiness is judged on the slot center only. An empty ability slot is an almost black square
-    /// (mean brightness ~0-15 vs ~65+ for any icon on the reference screenshot); the "NO HERO" silhouette is
-    /// a flat low-contrast picture (std-dev ~15-30 vs ~50+ for real hero art).
+    /// Emptiness is judged on the slot center only, by texture (std-dev), never by brightness.
+    /// An empty ability slot is a flat dark square (std ~5-20); the "NO HERO" silhouette is a flat low-contrast
+    /// picture (std ~15-30 vs ~50+ for real hero art). A brightness test misreads genuinely dark icons as empty,
+    /// and a slot judged empty is never matched, so such an ability would stay invisible for the whole game.
+    /// <paramref name="stats"/> carries the measured numbers for the debug image.
     /// </summary>
-    private static bool IsEmpty(Mat screenshot, PixelRect roi, SlotType type, MatchingOptions options)
+    private static bool IsEmpty(Mat screenshot, PixelRect roi, SlotType type, MatchingOptions options, out string stats)
     {
+        stats = string.Empty;
         var trim = Math.Max(0, options.EmptyInset);
         var width = roi.Width - 2 * trim;
         var height = roi.Height - 2 * trim;
@@ -186,12 +194,22 @@ public sealed class ScreenshotRecognitionService
         if (type == SlotType.Hero)
         {
             Cv2.MeanStdDev(center, out _, out var std);
-            return Math.Max(std.Val0, Math.Max(std.Val1, std.Val2)) < options.HeroEmptyMaxStdDev;
+            var maxStd = Math.Max(std.Val0, Math.Max(std.Val1, std.Val2));
+            stats = $"s={maxStd:0.0}";
+            return maxStd < options.HeroEmptyMaxStdDev;
         }
 
-        var mean = Cv2.Mean(center);
-        return (mean.Val0 + mean.Val1 + mean.Val2) / 3.0 < options.AbilityEmptyMaxMean;
+        Cv2.MeanStdDev(center, out var mean, out var channelStd);
+        var overall = (mean.Val0 + mean.Val1 + mean.Val2) / 3.0;
+        // Pooled variance over all channel values = mean within-channel variance + variance of the channel means.
+        var variance = (Sq(channelStd.Val0) + Sq(channelStd.Val1) + Sq(channelStd.Val2)) / 3.0
+                       + (Sq(mean.Val0 - overall) + Sq(mean.Val1 - overall) + Sq(mean.Val2 - overall)) / 3.0;
+        var pooledStd = Math.Sqrt(variance);
+        stats = $"s={pooledStd:0.0} m={overall:0}";
+        return pooledStd < options.AbilityEmptyMaxStdDev;
     }
+
+    private static double Sq(double value) => value * value;
 
     private static IEnumerable<(int Dx, int Dy)> ShiftOffsets(int shift)
     {
@@ -222,11 +240,16 @@ public sealed class ScreenshotRecognitionService
                 Cv2.Rectangle(canvas, new CvRect(roi.X, roi.Y, roi.Width, roi.Height), color, 1);
                 if (r.Slot.NameRoi is { } name)
                     Cv2.Rectangle(canvas, new CvRect(name.X, name.Y, name.Width, name.Height), color, 1);
+                var tag = r.Slot.Type == SlotType.Hero ? "H" : "A" + r.Slot.Index;
+                // Uncertain slots show margin and runner-up, empty slots show the measured std/mean:
+                // this is what tells a threshold problem from a missing/stale icon or a mis-detected empty slot.
                 var label = r.Slot.Type == SlotType.Hero && r.RawText is not null
                     ? $"P{r.Slot.Player}H '{r.RawText}' -> {r.EntityId ?? r.State.ToString()} {r.Score:0.00}"
-                    : r.State is SlotState.Recognized or SlotState.Uncertain
-                    ? $"P{r.Slot.Player}{(r.Slot.Type == SlotType.Hero ? "H" : "A" + r.Slot.Index)} {r.EntityId} {r.Score:0.00}"
-                    : $"P{r.Slot.Player}{(r.Slot.Type == SlotType.Hero ? "H" : "A" + r.Slot.Index)} {r.State}";
+                    : r.State == SlotState.Recognized
+                    ? $"P{r.Slot.Player}{tag} {r.EntityId} {r.Score:0.00}"
+                    : r.State == SlotState.Uncertain
+                    ? $"P{r.Slot.Player}{tag}? {r.EntityId} {r.Score:0.00} m{r.Margin:0.00} vs {r.RunnerUpId}"
+                    : $"P{r.Slot.Player}{tag} {r.State} {r.RawText}";
                 Cv2.PutText(canvas, label, new CvPoint(roi.X, Math.Max(10, roi.Y - 2)), HersheyFonts.HersheySimplex, 0.3, color, 1);
             }
 
