@@ -10,5 +10,7 @@
 - `HeroNameReader` reads hero-name text using built-in Windows OCR; `HeroNameMatcher` fuzzy-matches it against the hero catalog.
 - `GameWindowCapture` captures only the game window (process `dota2`, any monitor) and skips minimized or covered windows. It does not capture unless the game is the foreground window.
 - `DraftSessionTracker` tracks sessions and each player's pick order; `SessionStore` saves sessions to `Sessions\*.json`.
-- `AutoTrackingService` runs the capture → recognition → tracking pipeline on a timer.
+- `AutoTrackingService` runs the capture → recognition → tracking pipeline on a timer and exposes `Schedule` (time of the next capture) for the status-bar countdown.
+- `EnvironmentCheckService` runs the startup checks (English in Windows, OCR, Dota 2 language via `SteamGameLanguage`, screen resolution).
+- `TrayIconService` is the tray icon (Show / Exit menu, native `Shell_NotifyIcon`, no WinForms); `AppLifecycle` tells the main window whether closing hides it or exits.
 - `DraftReportFormatter` formats a text report for players and picks.

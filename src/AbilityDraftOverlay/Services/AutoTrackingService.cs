@@ -7,6 +7,9 @@ namespace AbilityDraftOverlay.Services;
 /// <param name="Update">Null when no frame was recognized (game window missing, covered, ...).</param>
 public sealed record TrackingTick(DateTimeOffset At, string Status, DraftSnapshot? Snapshot, SessionUpdate? Update, bool IsError);
 
+/// <summary>When the next automatic capture is due and how long the pause between captures is.</summary>
+public sealed record CaptureSchedule(DateTimeOffset NextAt, TimeSpan Interval);
+
 /// <summary>
 /// Takes a screenshot of the game window every <see cref="AppSettings.CaptureIntervalSeconds"/> seconds
 /// (the first one immediately), recognizes it and feeds the draft session tracker.
@@ -24,6 +27,7 @@ public sealed class AutoTrackingService
     private readonly object _gate = new();
     private CancellationTokenSource? _cts;
     private Task? _loop;
+    private volatile CaptureSchedule? _schedule;
 
     public AutoTrackingService(GameWindowCapture capture, ScreenshotRecognitionService recognizer, DraftSessionTracker tracker,
         DraftLayoutProvider layouts, HeroNameReader heroNames, ISettingsService settings, ILogger<AutoTrackingService> logger)
@@ -41,6 +45,9 @@ public sealed class AutoTrackingService
     public event Action<TrackingTick>? Ticked;
 
     public bool IsRunning { get { lock (_gate) return _cts is not null; } }
+
+    /// <summary>Null while tracking is stopped. Read from the UI thread to show the countdown to the next screenshot.</summary>
+    public CaptureSchedule? Schedule => _schedule;
 
     public async Task StartAsync()
     {
@@ -62,6 +69,7 @@ public sealed class AutoTrackingService
         {
             if (_cts is not null) return;
             _cts = new CancellationTokenSource();
+            _schedule = new CaptureSchedule(DateTimeOffset.Now, interval); // the first capture is due right now
             var token = _cts.Token;
             _loop = Task.Run(() => RunAsync(processName, interval, token));
         }
@@ -84,7 +92,11 @@ public sealed class AutoTrackingService
         cts.Cancel();
         try { if (loop is not null) await loop; }
         catch (OperationCanceledException) { }
-        finally { cts.Dispose(); } // only after the loop has finished using the token
+        finally
+        {
+            cts.Dispose(); // only after the loop has finished using the token
+            _schedule = null;
+        }
         _logger.LogInformation("Auto-tracking stopped");
     }
 
@@ -93,9 +105,17 @@ public sealed class AutoTrackingService
         try
         {
             using var timer = new PeriodicTimer(interval);
+            var due = DateTimeOffset.Now; // the first capture is immediate
             do
             {
                 Tick(processName, token);
+
+                // PeriodicTimer keeps a fixed cadence, so the next capture is one interval after the previous due time
+                // (re-anchored to "now" if a capture ever took longer than the interval).
+                due += interval;
+                var now = DateTimeOffset.Now;
+                if (due < now) due = now;
+                _schedule = new CaptureSchedule(due, interval);
             }
             while (await timer.WaitForNextTickAsync(token));
         }

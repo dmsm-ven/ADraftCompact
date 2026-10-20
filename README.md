@@ -9,12 +9,17 @@ A lightweight Windows overlay for **Dota 2 Ability Draft**. It recognizes the dr
 - Transparent overlay with configurable position, icon size, spacing, background opacity, and borders.
 - Local session history and event log.
 - Incremental download of hero and ability artwork.
+- Closing the window hides the app into the tray (tray menu: Show, Exit); tracking and the overlay keep running.
+- Status bar counts down to the next automatic screenshot while tracking.
 
 ## Requirements
 
 - Windows and the .NET 10 SDK.
 - Dota 2 set to **Borderless Window** or **Windowed** mode.
 - English (United States) Windows OCR language for hero-name recognition.
+- Dota 2 language set to English, and a 1920x1080 primary display.
+
+These requirements are checked at startup. If one fails, a warning is shown, the window is disabled (title-bar buttons still work) and closing it exits instead of hiding to the tray. To bypass the checks set `"SkipEnvironmentChecks": true` in `%AppData%\AbilityDraftOverlay\settings.json`; the expected resolution is `TargetScreenWidth` / `TargetScreenHeight` in the same file.
 
 ## Run
 

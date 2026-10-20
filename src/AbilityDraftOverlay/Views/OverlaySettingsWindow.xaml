@@ -71,6 +71,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="Background color" />
                     <Button
@@ -208,6 +209,13 @@
                         Grid.ColumnSpan="3"
                         Margin="0,7,0,4"
                         Content="Show Radiant / Dire labels"
+                        Foreground="White" />
+                    <CheckBox
+                        x:Name="RoundBordersCheckBox"
+                        Grid.Row="10"
+                        Grid.ColumnSpan="3"
+                        Margin="0,3,0,4"
+                        Content="Round icon borders"
                         Foreground="White" />
                 </Grid>
                 <TextBlock
