@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Net.Http;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace AbilityDraftOverlay.ViewModels;
 
@@ -23,12 +24,23 @@ public partial class MainViewModel : ObservableObject
     private readonly OverlaySettingsService _overlaySettingsService;
     [ObservableProperty] private bool isOverlayVisible;
 
+    private readonly DispatcherTimer _countdownTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private const int CountdownBarCount = 10;
+
     [ObservableProperty] private string statusText = "Ready.";
     [ObservableProperty] private bool isBusy;
-    [ObservableProperty] private string resourceSummary = "Assets: checking...";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(RightStatusText))] private string resourceSummary = "Assets: checking...";
     [ObservableProperty] private bool isTracking;
     [ObservableProperty] private string sessionText = "Session: none";
+    /// <summary>"Next screenshot in 25 sec |||||||||" while auto-tracking runs, otherwise null.</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(RightStatusText))] private string? countdownText;
+    /// <summary>False when the startup checks failed: the whole window is disabled except the title-bar buttons.</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(EnvironmentBannerVisibility))] private bool isEnvironmentOk = true;
+    [ObservableProperty] private string environmentWarning = string.Empty;
     public ObservableCollection<DraftEvent> Events { get; } = new();
+    /// <summary>Right part of the status bar: the screenshot countdown while tracking, the assets summary otherwise.</summary>
+    public string RightStatusText => CountdownText ?? ResourceSummary;
+    public Visibility EnvironmentBannerVisibility => IsEnvironmentOk ? Visibility.Collapsed : Visibility.Visible;
     public string TrackingButtonText => IsTracking ? "■ Stop tracking" : "▶ Start tracking";
     public string OverlayButtonText => IsOverlayVisible ? "▣ Hide overlay" : "▣ Show overlay";
 
@@ -46,12 +58,46 @@ public partial class MainViewModel : ObservableObject
         _ = LoadOverlaySettingsAsync();
         _overlayWindow.UpdateSession(_tracker.Current);
         _overlayWindow.Closed += (_, _) => { IsOverlayVisible = false; OnPropertyChanged(nameof(OverlayButtonText)); };
+        _countdownTimer.Tick += (_, _) => UpdateCountdown();
         UpdateResourceSummary();
     }
 
     partial void OnIsTrackingChanged(bool value)
     {
         OnPropertyChanged(nameof(TrackingButtonText));
+        if (value)
+        {
+            UpdateCountdown();
+            _countdownTimer.Start();
+        }
+        else
+        {
+            _countdownTimer.Stop();
+            CountdownText = null;
+        }
+    }
+
+    /// <summary>Applies the result of the startup checks: a failed check disables the window and shows why.</summary>
+    public void ApplyEnvironment(EnvironmentReport report)
+    {
+        EnvironmentWarning = report.IsOk ? string.Empty : report.ToBannerText();
+        IsEnvironmentOk = report.IsOk;
+        if (!report.IsOk) StatusText = "Startup checks failed. Fix the problems listed above and restart the application.";
+    }
+
+    private void UpdateCountdown()
+    {
+        var schedule = _autoTracking.Schedule;
+        CountdownText = schedule is null ? null : FormatCountdown(schedule.NextAt - DateTimeOffset.Now, schedule.Interval);
+    }
+
+    /// <summary>"Next screenshot in 25 sec |||||||||": whole seconds left and a 10-step bar that shrinks as the time runs out.</summary>
+    internal static string FormatCountdown(TimeSpan remaining, TimeSpan interval)
+    {
+        var left = Math.Max(0, remaining.TotalSeconds);
+        var fraction = interval.TotalSeconds > 0 ? Math.Clamp(left / interval.TotalSeconds, 0, 1) : 0;
+        var bars = (int)Math.Ceiling(fraction * CountdownBarCount);
+        return $"Next screenshot in {(int)Math.Ceiling(left)} sec {new string('|', bars)}";
     }
 
     [RelayCommand]

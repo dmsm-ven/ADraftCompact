@@ -37,6 +37,7 @@ public partial class OverlaySettingsWindow : Window
             AbilityGapSlider.Value = _settings.AbilityGap;
             TeamGapSlider.Value = _settings.TeamGap;
             ShowNamesCheckBox.IsChecked = _settings.ShowTeamNames;
+            RoundBordersCheckBox.IsChecked = _settings.RoundIconBorders;
             UpdateColorButtons();
             UpdateLabels();
             _initializing = false;
@@ -46,6 +47,8 @@ public partial class OverlaySettingsWindow : Window
             slider.ValueChanged += (_, _) => ApplyControlsLive();
         ShowNamesCheckBox.Checked += (_, _) => ApplyControlsLive();
         ShowNamesCheckBox.Unchecked += (_, _) => ApplyControlsLive();
+        RoundBordersCheckBox.Checked += (_, _) => ApplyControlsLive();
+        RoundBordersCheckBox.Unchecked += (_, _) => ApplyControlsLive();
     }
 
     private void UpdateLabels()
@@ -70,6 +73,7 @@ public partial class OverlaySettingsWindow : Window
         _settings.AbilityGap = (int)AbilityGapSlider.Value;
         _settings.TeamGap = (int)TeamGapSlider.Value;
         _settings.ShowTeamNames = ShowNamesCheckBox.IsChecked == true;
+        _settings.RoundIconBorders = RoundBordersCheckBox.IsChecked == true;
         if (_positionEditing)
         {
             _settings.Left = _overlay.Left;

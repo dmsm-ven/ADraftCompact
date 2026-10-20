@@ -63,6 +63,9 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
         : new SolidColorBrush(Color.FromArgb((byte)Math.Clamp(Settings.OverlayOpacityPercent * 255 / 100, 0, 255), ParseColor(Settings.OverlayColorHex).R, ParseColor(Settings.OverlayColorHex).G, ParseColor(Settings.OverlayColorHex).B));
     public Brush IconBorderBrush => new SolidColorBrush(ParseColor(Settings.IconBorderColorHex));
     public Thickness IconBorderThickness => new(Settings.IconBorderThickness);
+    /// <summary>The smallest rounding that is still visible; a large radius is deliberately not offered.</summary>
+    private const double RoundedIconRadius = 3;
+    public CornerRadius IconCornerRadius => new(Settings.RoundIconBorders ? RoundedIconRadius : 0);
     public Brush OverlayBorderBrush => _positionEditMode ? Brushes.DeepSkyBlue : Brushes.Transparent;
     public Thickness OverlayBorderThickness => _positionEditMode ? new Thickness(2) : new Thickness(0);
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -208,7 +211,7 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(PlayerRowMargin)); OnPropertyChanged(nameof(HeroMargin)); OnPropertyChanged(nameof(AbilityMargin));
         OnPropertyChanged(nameof(ShowTeamNames)); OnPropertyChanged(nameof(TeamNamesVisibility));
         OnPropertyChanged(nameof(OverlayBackground)); OnPropertyChanged(nameof(IconBorderBrush));
-        OnPropertyChanged(nameof(IconBorderThickness)); OnPropertyChanged(nameof(OverlayBorderBrush));
+        OnPropertyChanged(nameof(IconBorderThickness)); OnPropertyChanged(nameof(IconCornerRadius)); OnPropertyChanged(nameof(OverlayBorderBrush));
         OnPropertyChanged(nameof(OverlayBorderThickness));
     }
 

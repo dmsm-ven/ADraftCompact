@@ -14,4 +14,6 @@ public sealed class OverlaySettings
     public int AbilityGap { get; set; } = 4;
     public int TeamGap { get; set; } = 30;
     public bool ShowTeamNames { get; set; } = true;
+    /// <summary>Slightly rounded corners on hero and ability icons (and their borders).</summary>
+    public bool RoundIconBorders { get; set; }
 }

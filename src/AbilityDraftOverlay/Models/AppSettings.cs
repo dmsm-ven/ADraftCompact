@@ -9,8 +9,11 @@ public sealed class AppSettings
     public bool TileBackgroundImage { get; set; }
     public int TextureScalePercent { get; set; } = 100;
 
+    /// <summary>Screen resolution the draft layout was measured for; checked at startup.</summary>
     public int TargetScreenWidth { get; set; } = 1920;
     public int TargetScreenHeight { get; set; } = 1080;
+    /// <summary>Escape hatch: skip the startup checks (English, OCR, game language, resolution) and never disable the window.</summary>
+    public bool SkipEnvironmentChecks { get; set; }
 
     /// <summary>Pause between automatic screenshots. One minute is about one pass over all 10 players.</summary>
     public int CaptureIntervalSeconds { get; set; } = 60;
