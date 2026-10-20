@@ -17,6 +17,7 @@ public partial class MainViewModel : ObservableObject
     private readonly DotaAssetsDownloader _assetsDownloader;
     private readonly DraftSessionTracker _tracker;
     private readonly AutoTrackingService _autoTracking;
+    private readonly OverlayAutoVisibility _autoVisibility;
     private string? _lastTickStatus;
     private readonly IconIndex _iconIndex;
     private readonly ILogger<MainViewModel> _logger;
@@ -45,12 +46,16 @@ public partial class MainViewModel : ObservableObject
     public string OverlayButtonText => IsOverlayVisible ? "▣ Hide overlay" : "▣ Show overlay";
 
     public MainViewModel(DotaAssetsDownloader assetsDownloader,
-        DraftSessionTracker tracker, AutoTrackingService autoTracking, IconIndex iconIndex, OverlayWindow overlayWindow, OverlaySettingsService overlaySettingsService, ILogger<MainViewModel> logger)
+        DraftSessionTracker tracker, AutoTrackingService autoTracking, OverlayAutoVisibility autoVisibility, IconIndex iconIndex, OverlayWindow overlayWindow, OverlaySettingsService overlaySettingsService, ILogger<MainViewModel> logger)
     {
         _assetsDownloader = assetsDownloader;
         _tracker = tracker;
         _autoTracking = autoTracking;
         _autoTracking.Ticked += OnTick;
+        _autoVisibility = autoVisibility;
+        _autoVisibility.IsSuspended = () => _overlayWindow.IsPositionEditing;
+        _autoVisibility.ShowRequested += () => SetOverlayVisible(true, "Overlay shown automatically: the draft board was detected.");
+        _autoVisibility.HideRequested += () => SetOverlayVisible(false, "Overlay hidden automatically: the game was closed.");
         _iconIndex = iconIndex;
         _logger = logger;
         _overlayWindow = overlayWindow;
@@ -101,21 +106,28 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ToggleOverlay()
+    private void ToggleOverlay() => SetOverlayVisible(!IsOverlayVisible);
+
+    /// <summary>Shows or hides the overlay; <paramref name="reason"/> (automatic changes only) goes to the event log.</summary>
+    private void SetOverlayVisible(bool visible, string? reason = null)
     {
-        if (IsOverlayVisible)
-        {
-            _overlayWindow.Hide();
-            IsOverlayVisible = false;
-        }
-        else
+        if (visible == IsOverlayVisible) return;
+        if (visible)
         {
             _overlayWindow.UpdateSession(_tracker.Current);
             if (!_overlayWindow.IsVisible) _overlayWindow.Show();
-            IsOverlayVisible = true;
         }
+        else
+        {
+            _overlayWindow.Hide();
+        }
+        IsOverlayVisible = visible;
         OnPropertyChanged(nameof(OverlayButtonText));
+        if (reason is not null) AddEvent(DraftEventKind.Resource, "overlay", reason);
     }
+
+    /// <summary>Starts the automatic overlay show/hide (after the startup checks passed).</summary>
+    public Task StartOverlayAutomationAsync() => _autoVisibility.StartAsync();
 
     private async Task LoadOverlaySettingsAsync()
     {
@@ -205,6 +217,7 @@ public partial class MainViewModel : ObservableObject
     private void OnTick(TrackingTick tick) => Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
     {
         ShowUpdate(tick.Snapshot, tick.Update);
+        _autoVisibility.OnTick(tick);
         StatusText = $"{tick.At:HH:mm:ss} · {tick.Status}";
         // Identical repeated messages ("game window not found" every minute) are shown once.
         if (tick.Status != _lastTickStatus && tick.Update is null)
@@ -219,7 +232,7 @@ public partial class MainViewModel : ObservableObject
 
         if (update.EndedSession is { } ended)
             AddEvent(DraftEventKind.Resource, "session",
-                $"Session {ended.Id} ended: {ended.Captures} captures, {ended.TotalPicks} picks. File: {SessionStore.PathFor(ended)}");
+                $"Session {ended.Id} ended: {ended.Captures} captures, {ended.TotalPicks} picks.");
         if (update is { Started: true, Session: { } started })
             AddEvent(DraftEventKind.Resource, "session", $"New session {started.Id} · {started.StartedAt:yyyy-MM-dd HH:mm:ss}");
 

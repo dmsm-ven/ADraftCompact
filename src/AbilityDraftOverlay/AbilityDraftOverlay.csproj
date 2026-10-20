@@ -6,9 +6,12 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>AbilityDraftOverlay</RootNamespace>
     <AssemblyName>AbilityDraftOverlay</AssemblyName>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <None Update="Layouts\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Also read at run time for the tray icon. -->
+    <None Update="app.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />

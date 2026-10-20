@@ -1,28 +1,39 @@
 using System.IO;
 using Microsoft.Extensions.Logging;
+using AbilityDraftOverlay.Services;
 
 namespace AbilityDraftOverlay.Logging;
 
-/// <summary>Writes application logs to a rolling-by-startup text file in LocalAppData.</summary>
+/// <summary>
+/// Writes application logs to one file (<see cref="AppPaths.LogFile"/>, next to the executable), appended across runs.
+/// The file is started afresh when it grows beyond <see cref="MaxBytes"/>, so it can never grow without limit.
+/// If the file cannot be opened (e.g. the app sits in a read-only folder) logging is silently switched off instead of crashing the app.
+/// </summary>
 public sealed class FileLoggerProvider : ILoggerProvider
 {
+    private const long MaxBytes = 5 * 1024 * 1024;
+
     private readonly object _sync = new();
-    private readonly StreamWriter _writer;
+    private readonly StreamWriter? _writer;
     private bool _disposed;
 
-    public string LogFilePath { get; }
+    public string LogFilePath { get; } = AppPaths.LogFile;
 
     public FileLoggerProvider()
     {
-        var logDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "AbilityDraftOverlay", "Logs");
-        Directory.CreateDirectory(logDirectory);
-        LogFilePath = Path.Combine(logDirectory, $"app-{DateTime.Now:yyyyMMdd-HHmmss}.log");
-        _writer = new StreamWriter(new FileStream(LogFilePath, FileMode.CreateNew, FileAccess.Write, FileShare.ReadWrite))
+        try
         {
-            AutoFlush = true
-        };
+            var mode = File.Exists(LogFilePath) && new FileInfo(LogFilePath).Length > MaxBytes ? FileMode.Create : FileMode.Append;
+            _writer = new StreamWriter(new FileStream(LogFilePath, mode, FileAccess.Write, FileShare.ReadWrite))
+            {
+                AutoFlush = true
+            };
+            _writer.WriteLine($"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff zzz} [Information] [Logging] ---- application started ----");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _writer = null;
+        }
     }
 
     public ILogger CreateLogger(string categoryName) => new FileLogger(categoryName, WriteLine);
@@ -31,8 +42,9 @@ public sealed class FileLoggerProvider : ILoggerProvider
     {
         lock (_sync)
         {
-            if (!_disposed)
-                _writer.WriteLine(line);
+            if (_disposed || _writer is null) return;
+            try { _writer.WriteLine(line); }
+            catch (IOException) { /* a full disk must not take the application down */ }
         }
     }
 
@@ -43,7 +55,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
             if (_disposed)
                 return;
             _disposed = true;
-            _writer.Dispose();
+            _writer?.Dispose();
         }
     }
 

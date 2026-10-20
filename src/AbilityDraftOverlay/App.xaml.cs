@@ -50,7 +50,7 @@ public partial class App : Application
                 services.AddSingleton<AppLifecycle>();
                 services.AddSingleton<TrayIconService>();
                 services.AddSingleton<EnvironmentCheckService>();
-                services.AddSingleton<SessionStore>();
+                services.AddSingleton<OverlayAutoVisibility>();
                 services.AddSingleton<DraftSessionTracker>();
                 services.AddSingleton<GameWindowCapture>();
                 services.AddSingleton<AutoTrackingService>();
@@ -93,6 +93,7 @@ public partial class App : Application
             };
             tray.Show();
             lifecycle.HideToTrayOnClose = true;
+            await services.GetRequiredService<MainViewModel>().StartOverlayAutomationAsync();
         }
 
         mainWindow.Show();

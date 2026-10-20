@@ -10,7 +10,7 @@ public sealed record AssetDownloadResult(int Downloaded, int Skipped, int Failed
 public sealed record AssetStorageInfo(int FileCount, long TotalBytes, string DirectoryPath);
 
 /// <summary>
-/// Downloads public Dota 2 image assets and OpenDota constants. Files are stored under LocalAppData.
+/// Downloads public Dota 2 image assets and OpenDota constants. Files are stored in the Assets folder next to the executable.
 /// Existing files are kept, so subsequent runs act as incremental updates.
 /// </summary>
 public sealed class DotaAssetsDownloader
@@ -28,9 +28,7 @@ public sealed class DotaAssetsDownloader
     private static readonly Uri OpenDotaHeroAbilities = new("https://api.opendota.com/api/constants/hero_abilities");
     private const string Cdn = "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/";
 
-    private static string AssetsRoot => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AbilityDraftOverlay", "Assets");
+    private static string AssetsRoot => AppPaths.Assets;
 
     public static AssetStorageInfo GetStorageInfo()
     {

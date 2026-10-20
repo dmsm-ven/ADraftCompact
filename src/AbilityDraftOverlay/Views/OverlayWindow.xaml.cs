@@ -48,7 +48,12 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
     public ObservableCollection<OverlayPlayerRow> RadiantRows { get; } = new();
     public ObservableCollection<OverlayPlayerRow> DireRows { get; } = new();
     public OverlaySettings Settings { get; private set; } = new();
+    /// <summary>True while the user drags the overlay from the settings window.</summary>
+    public bool IsPositionEditing => _positionEditMode;
     public double IconSize => Settings.IconSize;
+    /// <summary>Hero portraits are 16:9 (256x144): the configured icon size is their height, the width follows.</summary>
+    public double HeroWidth => HeroWidthFor(Settings.IconSize);
+    private static double HeroWidthFor(int iconSize) => Math.Round(iconSize * 16.0 / 9.0);
     public double PlayerRowGap => Settings.PlayerRowGap;
     public double HeroGap => Settings.HeroGap;
     public double AbilityGap => Settings.AbilityGap;
@@ -154,7 +159,7 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
 
     private void UpdateSize()
     {
-        var width = Settings.IconSize * 5 + Settings.HeroGap + Settings.AbilityGap * 3 + Settings.IconBorderThickness * 10 + 8;
+        var width = HeroWidthFor(Settings.IconSize) + Settings.IconSize * 4 + Settings.HeroGap + Settings.AbilityGap * 3 + Settings.IconBorderThickness * 10 + 8;
         var height = Settings.IconSize * 10 + Settings.PlayerRowGap * 10 + Settings.TeamGap + (Settings.ShowTeamNames ? 32 : 0) + 12;
         Width = Math.Max(80, width);
         Height = Math.Max(80, height);
@@ -206,7 +211,7 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
 
     private void NotifySettingsChanged()
     {
-        OnPropertyChanged(nameof(IconSize)); OnPropertyChanged(nameof(PlayerRowGap));
+        OnPropertyChanged(nameof(IconSize)); OnPropertyChanged(nameof(HeroWidth)); OnPropertyChanged(nameof(PlayerRowGap));
         OnPropertyChanged(nameof(HeroGap)); OnPropertyChanged(nameof(AbilityGap)); OnPropertyChanged(nameof(TeamGap));
         OnPropertyChanged(nameof(PlayerRowMargin)); OnPropertyChanged(nameof(HeroMargin)); OnPropertyChanged(nameof(AbilityMargin));
         OnPropertyChanged(nameof(ShowTeamNames)); OnPropertyChanged(nameof(TeamNamesVisibility));

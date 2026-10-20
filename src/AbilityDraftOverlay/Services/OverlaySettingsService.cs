@@ -7,7 +7,7 @@ namespace AbilityDraftOverlay.Services;
 public sealed class OverlaySettingsService
 {
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
-    private static string SettingsPath => Path.Combine(AppPaths.Root, "overlay-settings.json");
+    private static string SettingsPath => AppPaths.OverlaySettingsFile;
 
     public async Task<OverlaySettings> LoadAsync(CancellationToken cancellationToken = default)
     {

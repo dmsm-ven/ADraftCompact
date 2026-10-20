@@ -17,16 +17,14 @@ public sealed class DraftSessionTracker
     private readonly record struct Seen(int Player, int Team, SlotType Type, int Slot, string Id, string Name, double Score, bool Confident);
     private sealed record Candidate(int FirstCapture, DateTimeOffset FirstSeenAt, int Count, int LastCapture);
 
-    private readonly SessionStore _store;
     private readonly ILogger<DraftSessionTracker> _logger;
     private readonly object _gate = new();
     private readonly Dictionary<(int Player, string Id), Candidate> _candidates = new();
     private DraftSession? _session;
     private int _boardMisses;
 
-    public DraftSessionTracker(SessionStore store, ILogger<DraftSessionTracker> logger)
+    public DraftSessionTracker(ILogger<DraftSessionTracker> logger)
     {
-        _store = store;
         _logger = logger;
     }
 
@@ -90,7 +88,6 @@ public sealed class DraftSessionTracker
             }
 
             var picks = Apply(_session, snapshot, seen, now);
-            _store.Save(_session);
 
             var message = $"Capture #{_session.Captures}: {picks.Count} new picks, {_session.TotalPicks} total.";
             return new SessionUpdate(_session, endedSession, started, picks, message);
@@ -105,7 +102,6 @@ public sealed class DraftSessionTracker
         _boardMisses = 0;
         if (session is null) return null;
         session.EndedAt = now;
-        _store.Save(session);
         _logger.LogInformation("Session {Id} ended: {Captures} captures, {Picks} picks", session.Id, session.Captures, session.TotalPicks);
         return session;
     }

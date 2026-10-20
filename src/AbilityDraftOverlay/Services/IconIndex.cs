@@ -114,7 +114,7 @@ public sealed class IconIndex
                 throw new InvalidOperationException("No hero or ability PNG icons were found in the asset directory.");
 
             var fingerprint = Fingerprint(heroFiles.Concat(abilityFiles));
-            var cachePath = Path.Combine(AppPaths.Cache, "icons.index");
+            var cachePath = AppPaths.IconIndexFile;
             if (!TryLoadCache(cachePath, fingerprint))
             {
                 _logger.LogInformation("Building icon index: {Heroes} heroes, {Abilities} ability files", heroFiles.Length, abilityFiles.Length);
