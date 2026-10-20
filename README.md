@@ -7,10 +7,11 @@ A lightweight Windows overlay for **Dota 2 Ability Draft**. It recognizes the dr
 - .NET 10 / WPF desktop app.
 - Automatic draft-board capture and recognition.
 - Transparent overlay with configurable position, icon size, spacing, background opacity, and borders.
-- Local session history and event log.
+- Event log of detected picks.
 - Incremental download of hero and ability artwork.
 - Closing the window hides the app into the tray (tray menu: Show, Exit); tracking and the overlay keep running.
 - Status bar counts down to the next automatic screenshot while tracking.
+- The overlay is hidden when the game closes and shown automatically 45 seconds after the draft board is detected (`OverlayAutoVisibility` / `OverlayAutoShowDelaySeconds` in `settings.json`).
 
 ## Requirements
 
@@ -27,13 +28,16 @@ Open `AbilityDraftOverlay.slnx` in Visual Studio, restore packages, and run the 
 
 ## Local data
 
-All app data is stored under `%LocalAppData%\AbilityDraftOverlay\`:
+Next to the executable:
 
-- `Assets` — downloaded images and reference data.
-- `Sessions` — saved draft sessions (`.json`).
-- `Logs` — application logs.
-- `Cache` — generated icon index.
-- `Debug` — latest recognition debug image.
+- `app.log` - the single application log (started afresh when it exceeds 5 MB).
+- `last_recognition.png` - debug image of the latest recognition.
+- `Assets` - downloaded images and reference data.
+- `layout.1920x1080.json` - optional layout override.
+
+`%LocalAppData%\AbilityDraftOverlay\` contains only two files, directly in its root: `overlay-settings.json` and `icons.index` (generated icon index).
+
+The application folder must therefore be writable.
 
 ## Overlay layout
 

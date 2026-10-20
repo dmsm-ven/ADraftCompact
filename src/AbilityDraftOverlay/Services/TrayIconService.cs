@@ -1,3 +1,4 @@
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using Microsoft.Extensions.Logging;
@@ -33,6 +34,10 @@ public sealed class TrayIconService : IDisposable
     private const uint TpmReturnCmd = 0x0100;
     private const int WsExToolWindow = 0x00000080;
     private const int IdiApplication = 32512;
+    private const uint ImageIcon = 1;
+    private const uint LrLoadFromFile = 0x0010;
+    private const int SmCxSmIcon = 49;
+    private const int SmCySmIcon = 50;
 
     private const uint CommandShow = 1;
     private const uint CommandExit = 2;
@@ -137,10 +142,24 @@ public sealed class TrayIconService : IDisposable
         }
     }
 
-    /// <summary>The icon of the executable; the stock application icon if it has none.</summary>
+    /// <summary>
+    /// app.ico next to the executable, loaded at the tray icon size (the .ico holds several sizes and Windows picks the matching one);
+    /// else the executable's own icon; else the stock application icon.
+    /// </summary>
     private static IntPtr LoadApplicationIcon(out bool owned)
     {
         owned = false;
+        if (File.Exists(AppPaths.IconFile))
+        {
+            var icon = LoadImage(IntPtr.Zero, AppPaths.IconFile, ImageIcon,
+                GetSystemMetrics(SmCxSmIcon), GetSystemMetrics(SmCySmIcon), LrLoadFromFile);
+            if (icon != IntPtr.Zero)
+            {
+                owned = true;
+                return icon;
+            }
+        }
+
         var path = Environment.ProcessPath;
         if (!string.IsNullOrEmpty(path))
         {
@@ -201,6 +220,12 @@ public sealed class TrayIconService : IDisposable
 
     [DllImport("shell32.dll", EntryPoint = "ExtractIconExW", CharSet = CharSet.Unicode)]
     private static extern uint ExtractIconEx(string file, int index, IntPtr[]? large, IntPtr[]? small, uint count);
+
+    [DllImport("user32.dll", EntryPoint = "LoadImageW", CharSet = CharSet.Unicode)]
+    private static extern IntPtr LoadImage(IntPtr instance, string name, uint type, int width, int height, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int index);
 
     [DllImport("user32.dll", EntryPoint = "LoadIconW")]
     private static extern IntPtr LoadIcon(IntPtr instance, IntPtr name);

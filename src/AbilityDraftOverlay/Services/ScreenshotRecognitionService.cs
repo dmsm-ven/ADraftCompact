@@ -253,12 +253,11 @@ public sealed class ScreenshotRecognitionService
                 Cv2.PutText(canvas, label, new CvPoint(roi.X, Math.Max(10, roi.Y - 2)), HersheyFonts.HersheySimplex, 0.3, color, 1);
             }
 
-            Directory.CreateDirectory(AppPaths.Debug);
-            var path = Path.Combine(AppPaths.Debug, "last_recognition.png");
+            var path = AppPaths.DebugImageFile;
             Cv2.ImWrite(path, canvas);
             return path;
         }
-        catch (Exception ex) when (ex is IOException or OpenCVException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OpenCVException)
         {
             _logger.LogWarning(ex, "Failed to save debug image");
             return null;
