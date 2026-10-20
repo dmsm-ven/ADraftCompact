@@ -8,11 +8,13 @@
 - `DraftLayoutProvider` loads slot coordinates from `Layouts\ability_draft_1920x1080.json` or the user layout `layout.1920x1080.json` (next to the executable).
 - `ScreenshotRecognitionService` recognizes slots using the layout and saves a debug image with slot outlines.
 - `HeroNameReader` reads hero-name text using built-in Windows OCR; `HeroNameMatcher` fuzzy-matches it against the hero catalog.
-- `GameWindowCapture` captures only the game window (process `dota2`, any monitor) and skips minimized or covered windows. It does not capture unless the game is the foreground window.
+- `GameWindowCapture` captures only the game window (process `dota2`, any monitor) and skips minimized or covered windows. It does not need the game to be the foreground window, but the window must not be covered.
 - `DraftSessionTracker` tracks sessions and each player's pick order in memory (sessions are not saved to disk).
-- `OverlayAutoVisibility` hides the overlay when the game closes and shows it 45 s after the draft board is detected.
+- `OverlayAutoHide` hides the overlay when the game process closes.
+- `HotkeyService` is the system-wide hotkey for "Recognize abilities" (`RegisterHotKey`, no keyboard hook).
+- `AppOptions` reads command-line switches (`--debug-mode` shows the event log).
 - `AppPaths` is the single place that defines where files live.
-- `AutoTrackingService` runs the capture → recognition → tracking pipeline on a timer and exposes `Schedule` (time of the next capture) for the status-bar countdown.
+- `ManualRecognitionService` does one recognition on demand: capture, recognize, update the draft session. There are no timers and no automatic screenshots.
 - `EnvironmentCheckService` runs the startup checks (English in Windows, OCR, Dota 2 language via `SteamGameLanguage`, screen resolution).
 - `TrayIconService` is the tray icon (Show / Exit menu, native `Shell_NotifyIcon`, no WinForms); `AppLifecycle` tells the main window whether closing hides it or exits.
 - `DraftReportFormatter` formats a text report for players and picks.

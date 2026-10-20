@@ -1,17 +1,16 @@
 # Ability Draft Overlay
 
-A lightweight Windows overlay for **Dota 2 Ability Draft**. It recognizes the draft board, tracks hero and ability picks for all 10 players, saves sessions locally, and displays the current picks in a transparent overlay.
+A lightweight Windows overlay for **Dota 2 Ability Draft**. On demand it recognizes the draft board, reads the heroes and abilities of all 10 players, and displays them in a transparent overlay.
 
 ## Features
 
 - .NET 10 / WPF desktop app.
-- Automatic draft-board capture and recognition.
+- One-click recognition: press **Recognize abilities** (or the hotkey, `Ctrl+Shift+O` by default) once every player has picked everything.
 - Transparent overlay with configurable position, icon size, spacing, background opacity, and borders.
-- Event log of detected picks.
+- Event log of detected picks (only when started with `--debug-mode`).
 - Incremental download of hero and ability artwork.
-- Closing the window hides the app into the tray (tray menu: Show, Exit); tracking and the overlay keep running.
-- Status bar counts down to the next automatic screenshot while tracking.
-- The overlay is hidden when the game closes and shown automatically 45 seconds after the draft board is detected (`OverlayAutoVisibility` / `OverlayAutoShowDelaySeconds` in `settings.json`).
+- Closing the window hides the app into the tray (tray menu: Show, Exit); the hotkey and the overlay keep working.
+- The overlay is shown after a successful recognition and hidden when the game closes (`OverlayAutoHide` in `settings.json`).
 
 ## Requirements
 
@@ -24,7 +23,7 @@ These requirements are checked at startup. If one fails, a warning is shown, the
 
 ## Run
 
-Open `AbilityDraftOverlay.slnx` in Visual Studio, restore packages, and run the `AbilityDraftOverlay` project. Use **Download Assets** on first launch, then select **Start Tracking**. Captures are performed only while the configured game process is the foreground window.
+Open `AbilityDraftOverlay.slnx` in Visual Studio, restore packages, and run the `AbilityDraftOverlay` project. Use **Download assets** (Overlay settings, bottom left) on first launch. When all players have picked, click **Recognize abilities** or press the hotkey: the game window is captured (it must be visible, not covered) and the overlay is filled in. The hotkey is configured in the overlay settings.
 
 ## Local data
 
@@ -41,7 +40,7 @@ The application folder must therefore be writable.
 
 ## Overlay layout
 
-The overlay displays odd-numbered players (1, 3, 5, 7, 9) in the upper block and even-numbered players (2, 4, 6, 8, 10) in the lower block. Each player row contains the hero, three abilities, and the ultimate. Use **Overlay** to adjust appearance and **Move Overlay** to reposition it.
+The overlay displays odd-numbered players (1, 3, 5, 7, 9) in the upper block and even-numbered players (2, 4, 6, 8, 10) in the lower block. Each player row contains the hero, three abilities, and the ultimate. Use the gear button to adjust appearance, hotkey, and position (**Move overlay**).
 
 ## Sources and Notes
 

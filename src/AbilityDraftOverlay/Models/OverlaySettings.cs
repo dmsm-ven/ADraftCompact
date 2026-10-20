@@ -16,4 +16,6 @@ public sealed class OverlaySettings
     public bool ShowTeamNames { get; set; } = true;
     /// <summary>Slightly rounded corners on hero and ability icons (and their borders).</summary>
     public bool RoundIconBorders { get; set; }
+    /// <summary>System-wide hotkey that does the same as the "Recognize abilities" button.</summary>
+    public string RecognizeHotkey { get; set; } = "Ctrl+Shift+O";
 }

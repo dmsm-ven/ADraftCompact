@@ -14,10 +14,17 @@ public partial class MainWindow : Window
         InitializeComponent();
         _lifecycle = lifecycle;
         DataContext = viewModel;
+        if (viewModel.IsDebugMode)
+        {
+            // --debug-mode: room for the event log.
+            Width = 980;
+            MinWidth = 700;
+            ResizeMode = ResizeMode.CanResize;
+        }
         Loaded += (_, _) => viewModel.UpdateResourceSummary();
     }
 
-    /// <summary>The close button hides the window into the tray; tracking and the overlay keep running.</summary>
+    /// <summary>The close button hides the window into the tray; the hotkey and the overlay keep working.</summary>
     protected override void OnClosing(CancelEventArgs e)
     {
         if (_lifecycle.ShouldHideOnClose)

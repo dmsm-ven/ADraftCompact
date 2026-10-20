@@ -12,7 +12,7 @@ public sealed record CaptureOutcome(Mat? Frame, string Status, PixelRect? Screen
 
 /// <summary>
 /// Takes a screenshot of the game window only (not of the whole desktop), on whichever monitor it is.
-/// Passive: reads what is already on the screen, nothing is injected into or read from the game process.
+/// Passive: reads what is already on the screen, nothing is injected into or read from the game process. The game does not have to be the foreground window, but it must not be covered.
 /// Uses plain GDI (BitBlt of the window's client rectangle), so it needs the game in windowed or borderless
 /// mode and the window must not be covered by another window.
 /// </summary>
@@ -32,14 +32,8 @@ public sealed class GameWindowCapture
         catch (Exception ex) when (ex is EntryPointNotFoundException or DllNotFoundException) { }
     }
 
-    public const string InactiveWindowStatus = "Dota 2 is not the foreground window.";
-
     public CaptureOutcome Capture(string processName)
     {
-        var foreground = GetForegroundWindow();
-        if (foreground == IntPtr.Zero || !IsProcessWindow(foreground, processName))
-            return new CaptureOutcome(null, InactiveWindowStatus, null);
-
         var window = FindGameWindow(processName);
         if (window == IntPtr.Zero)
             return new CaptureOutcome(null, $"Game window not found: process {processName}.exe is not running or has no window.", null);
@@ -54,7 +48,7 @@ public sealed class GameWindowCapture
 
         var bounds = new PixelRect(origin.X, origin.Y, client.Right, client.Bottom);
         if (IsCovered(window, bounds))
-            return new CaptureOutcome(null, "The game window is covered by another window; capture skipped.", bounds);
+            return new CaptureOutcome(null, "The game window is covered by another window. Bring Dota 2 to the front and try again.", bounds);
 
         var frame = CopyScreenRegion(bounds);
         if (frame is null)
@@ -69,29 +63,6 @@ public sealed class GameWindowCapture
         }
 
         return new CaptureOutcome(frame, $"{bounds.Width}x{bounds.Height} @ ({bounds.X},{bounds.Y})", bounds);
-    }
-
-    private static bool IsProcessWindow(IntPtr window, string processName)
-    {
-        GetWindowThreadProcessId(window, out var processId);
-        if (processId == 0) return false;
-        try
-        {
-            using var process = Process.GetProcessById((int)processId);
-            return string.Equals(process.ProcessName, processName, StringComparison.OrdinalIgnoreCase);
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
-        catch (InvalidOperationException)
-        {
-            return false;
-        }
-        catch (System.ComponentModel.Win32Exception)
-        {
-            return false;
-        }
     }
 
     private IntPtr FindGameWindow(string processName)
@@ -209,7 +180,6 @@ public sealed class GameWindowCapture
         public uint ColorsImportant;
     }
 
-    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);

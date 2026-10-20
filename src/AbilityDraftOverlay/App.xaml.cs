@@ -50,10 +50,11 @@ public partial class App : Application
                 services.AddSingleton<AppLifecycle>();
                 services.AddSingleton<TrayIconService>();
                 services.AddSingleton<EnvironmentCheckService>();
-                services.AddSingleton<OverlayAutoVisibility>();
+                services.AddSingleton<OverlayAutoHide>();
+                services.AddSingleton<HotkeyService>();
                 services.AddSingleton<DraftSessionTracker>();
                 services.AddSingleton<GameWindowCapture>();
-                services.AddSingleton<AutoTrackingService>();
+                services.AddSingleton<ManualRecognitionService>();
                 services.AddSingleton<ScreenshotRecognitionService>();
                 services.AddSingleton<OverlayWindow>();
                 services.AddSingleton<OverlaySettingsService>();
@@ -93,7 +94,7 @@ public partial class App : Application
             };
             tray.Show();
             lifecycle.HideToTrayOnClose = true;
-            await services.GetRequiredService<MainViewModel>().StartOverlayAutomationAsync();
+            await services.GetRequiredService<MainViewModel>().StartBackgroundFeaturesAsync();
         }
 
         mainWindow.Show();
@@ -111,6 +112,7 @@ public partial class App : Application
     protected override async void OnExit(ExitEventArgs e)
     {
         _tray?.Dispose();
+        _host?.Services.GetService<HotkeyService>()?.Dispose();
         if (_host is not null)
         {
             await _host.StopAsync();

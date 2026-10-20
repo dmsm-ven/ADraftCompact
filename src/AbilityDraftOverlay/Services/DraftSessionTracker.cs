@@ -21,15 +21,12 @@ public sealed class DraftSessionTracker
     private readonly object _gate = new();
     private readonly Dictionary<(int Player, string Id), Candidate> _candidates = new();
     private DraftSession? _session;
-    private int _boardMisses;
 
     public DraftSessionTracker(ILogger<DraftSessionTracker> logger)
     {
         _logger = logger;
     }
 
-    /// <summary>The session ends after this many consecutive captures without the draft board.</summary>
-    public int EndAfterMisses { get; set; } = 2;
     /// <summary>
     /// A board that shows fewer than this share of the items the session already knows is a new game.
     /// (Recognition misses a few slots now and then, so a mere dip must not restart the session.)
@@ -37,8 +34,11 @@ public sealed class DraftSessionTracker
     public double NewGameShare { get; set; } = 0.5;
     /// <summary>Uncertain readings below this score are ignored completely.</summary>
     public double CandidateMinScore { get; set; } = 0.5;
-    /// <summary>An uncertain reading is accepted once it was seen in this many captures.</summary>
-    public int CandidateConfirmations { get; set; } = 2;
+    /// <summary>
+    /// An uncertain reading is accepted once it was seen in this many captures. Captures are taken by hand (usually one per draft),
+    /// so the best guess is accepted at once: showing a likely ability is better than showing nothing.
+    /// </summary>
+    public int CandidateConfirmations { get; set; } = 1;
 
     public DraftSession? Current { get { lock (_gate) return _session; } }
 
@@ -56,20 +56,10 @@ public sealed class DraftSessionTracker
     {
         lock (_gate)
         {
+            // Captures are taken by hand: a frame without the board (wrong screen) must never wipe what is already known.
             if (!snapshot.BoardDetected)
-            {
-                if (_session is null)
-                    return new SessionUpdate(null, null, false, Array.Empty<DraftPick>(), "Ability Draft board not detected.");
-
-                _boardMisses++;
-                if (_boardMisses < EndAfterMisses)
-                    return new SessionUpdate(_session, null, false, Array.Empty<DraftPick>(),
-                        $"Board not detected ({_boardMisses} of {EndAfterMisses} misses before session ends).");
-
-                var closed = CloseSession(now);
-                return new SessionUpdate(null, closed, false, Array.Empty<DraftPick>(), "Board disappeared; session ended.");
-            }
-            _boardMisses = 0;
+                return new SessionUpdate(_session, null, false, Array.Empty<DraftPick>(),
+                    "Ability Draft board not detected. Open the draft screen and try again.");
 
             var seen = CollectSeen(snapshot);
             DraftSession? endedSession = null;
@@ -99,7 +89,6 @@ public sealed class DraftSessionTracker
         var session = _session;
         _session = null;
         _candidates.Clear();
-        _boardMisses = 0;
         if (session is null) return null;
         session.EndedAt = now;
         _logger.LogInformation("Session {Id} ended: {Captures} captures, {Picks} picks", session.Id, session.Captures, session.TotalPicks);

@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using AbilityDraftOverlay.Models;
 using AbilityDraftOverlay.Services;
@@ -13,16 +14,19 @@ public partial class OverlaySettingsWindow : Window
 {
     private readonly OverlayWindow _overlay;
     private readonly OverlaySettingsService _settingsService;
+    private readonly HotkeyService _hotkeys;
     private OverlaySettings _settings = new();
     private bool _initializing = true;
     private bool _positionEditing;
     private bool _settingsSaved;
 
-    public OverlaySettingsWindow(OverlayWindow overlay, OverlaySettingsService settingsService)
+    public OverlaySettingsWindow(OverlayWindow overlay, OverlaySettingsService settingsService, HotkeyService hotkeys, object viewModel)
     {
         InitializeComponent();
         _overlay = overlay;
         _settingsService = settingsService;
+        _hotkeys = hotkeys;
+        DataContext = viewModel; // download command and its progress text
 
         Loaded += async (_, _) =>
         {
@@ -38,6 +42,7 @@ public partial class OverlaySettingsWindow : Window
             TeamGapSlider.Value = _settings.TeamGap;
             ShowNamesCheckBox.IsChecked = _settings.ShowTeamNames;
             RoundBordersCheckBox.IsChecked = _settings.RoundIconBorders;
+            HotkeyBox.Text = _hotkeys.Current ?? _settings.RecognizeHotkey;
             UpdateColorButtons();
             UpdateLabels();
             _initializing = false;
@@ -49,6 +54,53 @@ public partial class OverlaySettingsWindow : Window
         ShowNamesCheckBox.Unchecked += (_, _) => ApplyControlsLive();
         RoundBordersCheckBox.Checked += (_, _) => ApplyControlsLive();
         RoundBordersCheckBox.Unchecked += (_, _) => ApplyControlsLive();
+    }
+
+    private const string HotkeyDefaultHint = "Recognize abilities (works inside the game)";
+
+    // While the field has the focus the hotkey is released, so pressing the current combination selects it instead of recognizing.
+    private void HotkeyBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        _hotkeys.Suspend();
+        HotkeyHint.Text = "Press a combination, e.g. Ctrl+Shift+O";
+    }
+
+    private void HotkeyBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        _hotkeys.Resume();
+        HotkeyBox.Text = _hotkeys.Current ?? _settings.RecognizeHotkey;
+        HotkeyHint.Text = HotkeyDefaultHint;
+    }
+
+    private void HotkeyBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        e.Handled = true;
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (HotkeyService.IsModifierKey(key)) return; // wait for the real key
+
+        var modifiers = Keyboard.Modifiers;
+        if (key == Key.Escape && modifiers == ModifierKeys.None)
+        {
+            Keyboard.ClearFocus();
+            return;
+        }
+        if (modifiers == ModifierKeys.None)
+        {
+            HotkeyHint.Text = "Add Ctrl, Alt, Shift or Win.";
+            return;
+        }
+
+        var text = HotkeyService.Format(modifiers, key);
+        if (_hotkeys.TryRegister(text, out var error))
+        {
+            _settings.RecognizeHotkey = text;
+            HotkeyBox.Text = text;
+            HotkeyHint.Text = $"Saved: {text}";
+        }
+        else
+        {
+            HotkeyHint.Text = $"{text}: {error}";
+        }
     }
 
     private void UpdateLabels()
@@ -232,6 +284,7 @@ public partial class OverlaySettingsWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _hotkeys.Resume();
         if (_positionEditing) _overlay.EndPositionEdit(true);
         base.OnClosed(e);
     }

@@ -5,81 +5,69 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Net.Http;
 using System.Windows;
-using System.Windows.Threading;
 
 namespace AbilityDraftOverlay.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    /// <summary>Time for the desktop compositor to repaint the screen after our own windows were taken away.</summary>
+    private static readonly TimeSpan RepaintDelay = TimeSpan.FromMilliseconds(200);
+
     private readonly DotaAssetsDownloader _assetsDownloader;
     private readonly DraftSessionTracker _tracker;
-    private readonly AutoTrackingService _autoTracking;
-    private readonly OverlayAutoVisibility _autoVisibility;
-    private string? _lastTickStatus;
+    private readonly ManualRecognitionService _recognition;
+    private readonly OverlayAutoHide _autoHide;
+    private readonly HotkeyService _hotkeys;
     private readonly IconIndex _iconIndex;
     private readonly ILogger<MainViewModel> _logger;
     private readonly OverlayWindow _overlayWindow;
     private readonly OverlaySettingsService _overlaySettingsService;
-    [ObservableProperty] private bool isOverlayVisible;
+    private bool _isSettingsOpen;
 
-    private readonly DispatcherTimer _countdownTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
-    private const int CountdownBarCount = 10;
-
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(OverlayButtonText), nameof(OverlayButtonIcon))] private bool isOverlayVisible;
     [ObservableProperty] private string statusText = "Ready.";
     [ObservableProperty] private bool isBusy;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(RightStatusText))] private string resourceSummary = "Assets: checking...";
-    [ObservableProperty] private bool isTracking;
+    [ObservableProperty] private string resourceSummary = "Assets: checking...";
+    /// <summary>Progress and result of the asset download, shown next to the download button in the overlay settings.</summary>
+    [ObservableProperty] private string assetsStatusText = string.Empty;
     [ObservableProperty] private string sessionText = "Session: none";
-    /// <summary>"Next screenshot in 25 sec |||||||||" while auto-tracking runs, otherwise null.</summary>
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(RightStatusText))] private string? countdownText;
     /// <summary>False when the startup checks failed: the whole window is disabled except the title-bar buttons.</summary>
     [ObservableProperty, NotifyPropertyChangedFor(nameof(EnvironmentBannerVisibility))] private bool isEnvironmentOk = true;
     [ObservableProperty] private string environmentWarning = string.Empty;
-    public ObservableCollection<DraftEvent> Events { get; } = new();
-    /// <summary>Right part of the status bar: the screenshot countdown while tracking, the assets summary otherwise.</summary>
-    public string RightStatusText => CountdownText ?? ResourceSummary;
-    public Visibility EnvironmentBannerVisibility => IsEnvironmentOk ? Visibility.Collapsed : Visibility.Visible;
-    public string TrackingButtonText => IsTracking ? "■ Stop tracking" : "▶ Start tracking";
-    public string OverlayButtonText => IsOverlayVisible ? "▣ Hide overlay" : "▣ Show overlay";
 
-    public MainViewModel(DotaAssetsDownloader assetsDownloader,
-        DraftSessionTracker tracker, AutoTrackingService autoTracking, OverlayAutoVisibility autoVisibility, IconIndex iconIndex, OverlayWindow overlayWindow, OverlaySettingsService overlaySettingsService, ILogger<MainViewModel> logger)
+    public ObservableCollection<DraftEvent> Events { get; } = new();
+    public Visibility EnvironmentBannerVisibility => IsEnvironmentOk ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>Started with <c>--debug-mode</c>: the event log is shown.</summary>
+    public bool IsDebugMode => AppOptions.DebugMode;
+    public Visibility LogVisibility => IsDebugMode ? Visibility.Visible : Visibility.Collapsed;
+
+    public string OverlayButtonText => IsOverlayVisible ? "Hide overlay" : "Show overlay";
+    /// <summary>Segoe MDL2 Assets glyph: "Hide" while the overlay is shown, "View" while it is hidden.</summary>
+    public string OverlayButtonIcon => IsOverlayVisible ? "" : "";
+
+    public MainViewModel(DotaAssetsDownloader assetsDownloader, DraftSessionTracker tracker, ManualRecognitionService recognition,
+        OverlayAutoHide autoHide, HotkeyService hotkeys, IconIndex iconIndex, OverlayWindow overlayWindow,
+        OverlaySettingsService overlaySettingsService, ILogger<MainViewModel> logger)
     {
         _assetsDownloader = assetsDownloader;
         _tracker = tracker;
-        _autoTracking = autoTracking;
-        _autoTracking.Ticked += OnTick;
-        _autoVisibility = autoVisibility;
-        _autoVisibility.IsSuspended = () => _overlayWindow.IsPositionEditing;
-        _autoVisibility.ShowRequested += () => SetOverlayVisible(true, "Overlay shown automatically: the draft board was detected.");
-        _autoVisibility.HideRequested += () => SetOverlayVisible(false, "Overlay hidden automatically: the game was closed.");
+        _recognition = recognition;
+        _hotkeys = hotkeys;
+        _hotkeys.Pressed += OnHotkeyPressed;
+        _autoHide = autoHide;
+        _autoHide.IsSuspended = () => _overlayWindow.IsPositionEditing;
+        _autoHide.HideRequested += () => SetOverlayVisible(false, "Overlay hidden automatically: the game was closed.");
         _iconIndex = iconIndex;
         _logger = logger;
         _overlayWindow = overlayWindow;
         _overlaySettingsService = overlaySettingsService;
         _ = LoadOverlaySettingsAsync();
         _overlayWindow.UpdateSession(_tracker.Current);
-        _overlayWindow.Closed += (_, _) => { IsOverlayVisible = false; OnPropertyChanged(nameof(OverlayButtonText)); };
-        _countdownTimer.Tick += (_, _) => UpdateCountdown();
+        _overlayWindow.Closed += (_, _) => IsOverlayVisible = false;
         UpdateResourceSummary();
-    }
-
-    partial void OnIsTrackingChanged(bool value)
-    {
-        OnPropertyChanged(nameof(TrackingButtonText));
-        if (value)
-        {
-            UpdateCountdown();
-            _countdownTimer.Start();
-        }
-        else
-        {
-            _countdownTimer.Stop();
-            CountdownText = null;
-        }
     }
 
     /// <summary>Applies the result of the startup checks: a failed check disables the window and shows why.</summary>
@@ -90,19 +78,24 @@ public partial class MainViewModel : ObservableObject
         if (!report.IsOk) StatusText = "Startup checks failed. Fix the problems listed above and restart the application.";
     }
 
-    private void UpdateCountdown()
+    /// <summary>Starts what runs in the background (hotkey, overlay auto-hide). Called only after the startup checks passed.</summary>
+    public async Task StartBackgroundFeaturesAsync()
     {
-        var schedule = _autoTracking.Schedule;
-        CountdownText = schedule is null ? null : FormatCountdown(schedule.NextAt - DateTimeOffset.Now, schedule.Interval);
+        var settings = await _overlaySettingsService.LoadAsync();
+        var hotkey = string.IsNullOrWhiteSpace(settings.RecognizeHotkey) ? HotkeyService.DefaultHotkey : settings.RecognizeHotkey;
+        if (!_hotkeys.TryRegister(hotkey, out var error))
+        {
+            StatusText = $"Hotkey {hotkey} is not available: {error} Change it in the overlay settings.";
+            AddEvent(DraftEventKind.Error, "hotkey", StatusText);
+        }
+        await _autoHide.StartAsync();
     }
 
-    /// <summary>"Next screenshot in 25 sec |||||||||": whole seconds left and a 10-step bar that shrinks as the time runs out.</summary>
-    internal static string FormatCountdown(TimeSpan remaining, TimeSpan interval)
+    private void OnHotkeyPressed()
     {
-        var left = Math.Max(0, remaining.TotalSeconds);
-        var fraction = interval.TotalSeconds > 0 ? Math.Clamp(left / interval.TotalSeconds, 0, 1) : 0;
-        var bars = (int)Math.Ceiling(fraction * CountdownBarCount);
-        return $"Next screenshot in {(int)Math.Ceiling(left)} sec {new string('|', bars)}";
+        // While the settings dialog is open the main window cannot be hidden for a screenshot (the dialog belongs to it).
+        if (!IsEnvironmentOk || IsBusy || _isSettingsOpen) return;
+        if (RecognizeAbilitiesCommand.CanExecute(null)) RecognizeAbilitiesCommand.Execute(null);
     }
 
     [RelayCommand]
@@ -122,12 +115,8 @@ public partial class MainViewModel : ObservableObject
             _overlayWindow.Hide();
         }
         IsOverlayVisible = visible;
-        OnPropertyChanged(nameof(OverlayButtonText));
         if (reason is not null) AddEvent(DraftEventKind.Resource, "overlay", reason);
     }
-
-    /// <summary>Starts the automatic overlay show/hide (after the startup checks passed).</summary>
-    public Task StartOverlayAutomationAsync() => _autoVisibility.StartAsync();
 
     private async Task LoadOverlaySettingsAsync()
     {
@@ -138,9 +127,71 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenOverlaySettings()
     {
-        var window = new OverlaySettingsWindow(_overlayWindow, _overlaySettingsService) { Owner = Application.Current.MainWindow };
-        window.ShowDialog();
-        OnPropertyChanged(nameof(OverlayButtonText));
+        var window = new OverlaySettingsWindow(_overlayWindow, _overlaySettingsService, _hotkeys, this) { Owner = Application.Current.MainWindow };
+        _isSettingsOpen = true;
+        try { window.ShowDialog(); }
+        finally { _isSettingsOpen = false; }
+    }
+
+    /// <summary>
+    /// Screenshot of the game, recognition of every hero and ability on the draft board, then the overlay is updated and shown.
+    /// Meant to be used once all players have picked everything. Also bound to the hotkey.
+    /// </summary>
+    [RelayCommand]
+    private async Task RecognizeAbilitiesAsync()
+    {
+        if (IsBusy) return;
+        IsBusy = true;
+        StatusText = "Recognizing abilities...";
+        try
+        {
+            CaptureOutcome capture;
+            var restoreWindows = HideOwnWindows();
+            try
+            {
+                // The screenshot is a copy of what is on the screen: our windows must not be on top of the game.
+                await Task.Delay(RepaintDelay);
+                capture = await _recognition.CaptureAsync();
+            }
+            finally { restoreWindows(); }
+
+            var outcome = await Task.Run(() => _recognition.Recognize(capture));
+            ShowOutcome(outcome);
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Recognition failed: {ex.Message}";
+            AddEvent(DraftEventKind.Error, "recognize", StatusText);
+            _logger.LogError(ex, "Recognition failed");
+        }
+        finally { IsBusy = false; }
+    }
+
+    private void ShowOutcome(RecognitionOutcome outcome)
+    {
+        ShowUpdate(outcome.Snapshot, outcome.Update);
+        StatusText = $"{outcome.At:HH:mm:ss} · {outcome.Status}";
+        AddEvent(outcome.IsError ? DraftEventKind.Error : DraftEventKind.Resource, "recognize", outcome.Status);
+
+        // The user asked for the result: show it.
+        if (outcome.Snapshot is { BoardDetected: true }) SetOverlayVisible(true);
+    }
+
+    /// <summary>Takes the main window and the overlay out of the way for the screenshot; the returned action brings them back.</summary>
+    private Action HideOwnWindows()
+    {
+        var main = Application.Current.MainWindow;
+        var mainWasVisible = main is { IsVisible: true };
+        var overlayWasVisible = _overlayWindow.IsVisible;
+
+        if (overlayWasVisible) _overlayWindow.Opacity = 0; // stays "shown" for the window manager, only not painted
+        if (mainWasVisible) main!.Hide();
+
+        return () =>
+        {
+            if (overlayWasVisible) _overlayWindow.Opacity = 1;
+            if (mainWasVisible) main!.Show();
+        };
     }
 
     [RelayCommand]
@@ -152,6 +203,7 @@ public partial class MainViewModel : ObservableObject
         _logger.LogInformation("User requested asset download");
         try
         {
+            AssetsStatusText = "Checking asset sources...";
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
             bool available;
             try { available = await _assetsDownloader.CheckAvailabilityAsync(timeout.Token); }
@@ -162,70 +214,31 @@ public partial class MainViewModel : ObservableObject
             }
             if (!available)
             {
-                StatusText = "Asset sources are unavailable. Download cancelled; check your network connection.";
+                StatusText = AssetsStatusText = "Asset sources are unavailable. Check your network connection.";
                 AddEvent(DraftEventKind.Error, "resource-check", StatusText);
                 _logger.LogWarning("Download cancelled: OpenDota is unavailable");
                 return;
             }
 
             StatusText = "Downloading assets...";
-            var result = await _assetsDownloader.DownloadAsync(message => Application.Current.Dispatcher.Invoke(() => StatusText = message));
+            var result = await _assetsDownloader.DownloadAsync(message => Application.Current.Dispatcher.Invoke(() => StatusText = AssetsStatusText = message));
             StatusText = $"Download complete: {result.Downloaded} new, {result.Skipped} skipped, {result.Failed} failed.";
             AddEvent(result.Failed > 0 ? DraftEventKind.Error : DraftEventKind.Resource, "assets", StatusText);
             _logger.LogInformation("{Summary}", StatusText);
             _iconIndex.Invalidate(); // new icons -> rebuild the descriptor index on next recognition
             UpdateResourceSummary();
+            AssetsStatusText = StatusText;
         }
         catch (Exception ex)
         {
-            StatusText = $"Asset download failed: {ex.Message}";
+            StatusText = AssetsStatusText = $"Asset download failed: {ex.Message}";
             AddEvent(DraftEventKind.Error, "download", StatusText);
             _logger.LogError(ex, "Asset download failed");
         }
         finally { IsBusy = false; }
     }
 
-    [RelayCommand]
-    private async Task ToggleTrackingAsync()
-    {
-        if (IsTracking)
-        {
-            await _autoTracking.StopAsync();
-            IsTracking = false;
-            StatusText = "Auto-tracking stopped.";
-            AddEvent(DraftEventKind.Resource, "tracking", StatusText);
-            return;
-        }
-
-        try
-        {
-            _lastTickStatus = null;
-            await _autoTracking.StartAsync();
-            IsTracking = true;
-            StatusText = "Auto-tracking started: the first capture is immediate, then one capture per minute.";
-            AddEvent(DraftEventKind.Resource, "tracking", StatusText);
-        }
-        catch (Exception ex)
-        {
-            StatusText = $"Could not start auto-tracking: {ex.Message}";
-            AddEvent(DraftEventKind.Error, "tracking", StatusText);
-            _logger.LogError(ex, "Could not start auto-tracking");
-        }
-    }
-
-    /// <summary>Called on a worker thread after every automatic capture.</summary>
-    private void OnTick(TrackingTick tick) => Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
-    {
-        ShowUpdate(tick.Snapshot, tick.Update);
-        _autoVisibility.OnTick(tick);
-        StatusText = $"{tick.At:HH:mm:ss} · {tick.Status}";
-        // Identical repeated messages ("game window not found" every minute) are shown once.
-        if (tick.Status != _lastTickStatus && tick.Update is null)
-            AddEvent(tick.IsError ? DraftEventKind.Error : DraftEventKind.Resource, "tracking", tick.Status);
-        _lastTickStatus = tick.Status;
-    }));
-
-    /// <summary>Puts the result of one recognized frame (manual or automatic) into the event list and the session line.</summary>
+    /// <summary>Puts the result of one recognized frame into the event list, the session line and the overlay.</summary>
     private void ShowUpdate(DraftSnapshot? snapshot, SessionUpdate? update)
     {
         if (update is null) return;
@@ -238,10 +251,9 @@ public partial class MainViewModel : ObservableObject
 
         foreach (var pick in update.NewPicks)
             AddEvent(pick.Type == SlotType.Hero ? DraftEventKind.Hero : DraftEventKind.Ability, pick.EntityId,
-                $"Player {pick.Player}: pick #{pick.PickOrder} — {(pick.Type == SlotType.Hero ? "hero" : "ability")} {pick.DisplayName}" +
-                $"{(pick.OrderUncertain ? " (order estimated)" : "")} · capture #{pick.Capture}", pick.Player);
+                $"Player {pick.Player}: {(pick.Type == SlotType.Hero ? "hero" : "ability")} {pick.DisplayName}", pick.Player);
 
-        if (snapshot is { BoardDetected: true } && (update.NewPicks.Count > 0 || update.Started))
+        if (snapshot is { BoardDetected: true })
             AddEvent(DraftEventKind.Frame, "report", DraftReportFormatter.Format(snapshot));
 
         SessionText = update.Session is { } session
@@ -250,21 +262,13 @@ public partial class MainViewModel : ObservableObject
         _overlayWindow.UpdateSession(update.Session);
     }
 
-    [RelayCommand]
-    private void ClearEvents()
-    {
-        Events.Clear();
-        _tracker.EndSession(DateTimeOffset.Now, "Log cleared"); // the next recognized board starts a new session
-        SessionText = "Session: none";
-        _overlayWindow.UpdateSession(null);
-    }
-
     public void UpdateResourceSummary()
     {
         try
         {
             var info = DotaAssetsDownloader.GetStorageInfo();
             ResourceSummary = $"Assets: {info.FileCount:N0} files · {FormatBytes(info.TotalBytes)}";
+            AssetsStatusText = ResourceSummary;
             _logger.LogInformation("Local assets: {Count} files, {Bytes} bytes", info.FileCount, info.TotalBytes);
         }
         catch (Exception ex)
@@ -282,6 +286,10 @@ public partial class MainViewModel : ObservableObject
         _ => $"{bytes} B"
     };
 
-    private void AddEvent(DraftEventKind kind, string source, string message, int player = 0) =>
+    private void AddEvent(DraftEventKind kind, string source, string message, int player = 0)
+    {
+        // The log is only visible with --debug-mode; do not keep growing a list nobody can see.
+        if (!IsDebugMode) return;
         Events.Insert(0, new DraftEvent(Events.Count + 1, player, kind, source, message, DateTimeOffset.Now));
+    }
 }
