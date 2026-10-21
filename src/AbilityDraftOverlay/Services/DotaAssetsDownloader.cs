@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -91,28 +91,22 @@ public sealed class DotaAssetsDownloader
                 continue;
 
             jobs.Add(($"{Cdn}dota_react/heroes/{shortName}.png", Path.Combine(AssetsRoot, "heroes", "portraits", $"{shortName}.png")));
-            jobs.Add(($"{Cdn}dota_react/heroes/icons/{shortName}.png", Path.Combine(AssetsRoot, "heroes", "icons", $"{shortName}.png")));
-            jobs.Add(($"{Cdn}images/heroes/{shortName}_lg.png", Path.Combine(AssetsRoot, "heroes", "legacy", $"{shortName}_lg.png")));
-            jobs.Add(($"{Cdn}images/heroes/{shortName}_icon.png", Path.Combine(AssetsRoot, "heroes", "legacy", $"{shortName}_icon.png")));
         }
 
-        foreach (var ability in abilitiesDocument.RootElement.EnumerateObject())
-        {
-            var key = ability.Name;
-            if (string.IsNullOrWhiteSpace(key) || key.Contains('/') || key.Contains('\\'))
-                continue;
-
+        // Only the modern icons of hero abilities are needed (talents, attribute bonuses and other non-draftable entries never appear
+        // in the draft), which is ~1/10 of the OpenDota ability list. Hero portraits are the only hero art used.
+        var abilityKeys = GetDraftableAbilityKeys(heroAbilitiesDocument.RootElement, abilitiesDocument.RootElement);
+        _logger.LogInformation("Draftable abilities: {Count} of {All} in the reference data", abilityKeys.Count,
+            abilitiesDocument.RootElement.EnumerateObject().Count());
+        foreach (var key in abilityKeys)
             jobs.Add(($"{Cdn}dota_react/abilities/{key}.png", Path.Combine(AssetsRoot, "abilities", "modern", $"{key}.png")));
-            jobs.Add(($"{Cdn}images/abilities/{key}_lg.png", Path.Combine(AssetsRoot, "abilities", "legacy", $"{key}_lg.png")));
-            jobs.Add(($"{Cdn}images/abilities/{key}_md.png", Path.Combine(AssetsRoot, "abilities", "legacy", $"{key}_md.png")));
-        }
 
         var total = jobs.Count;
         var completed = 0;
         var failed = 0;
         _logger.LogInformation("Image download queue created: {Count} files", total);
         progress?.Invoke($"Prepared {total} images for download checks...");
-        using var semaphore = new SemaphoreSlim(8);
+        using var semaphore = new SemaphoreSlim(24);
         // Abilities that exist in the reference data but have no modern icon on the CDN (new patch, rename): they can never be recognized.
         var missingModern = new System.Collections.Concurrent.ConcurrentBag<string>();
         var modernDirectory = Path.Combine(AssetsRoot, "abilities", "modern");
@@ -164,6 +158,24 @@ public sealed class DotaAssetsDownloader
             result.Downloaded, result.Skipped, result.Failed);
         progress?.Invoke($"Complete: {result.Downloaded} new, {result.Skipped} skipped/missing from CDN, {result.Failed} failed.");
         return result;
+    }
+
+    /// <summary>Ability keys listed in hero_abilities (regular abilities of every hero); falls back to all non-talent keys of abilities.json.</summary>
+    private static List<string> GetDraftableAbilityKeys(JsonElement heroAbilities, JsonElement allAbilities)
+    {
+        var keys = new SortedSet<string>(StringComparer.Ordinal);
+        if (heroAbilities.ValueKind == JsonValueKind.Object)
+            foreach (var hero in heroAbilities.EnumerateObject())
+                if (hero.Value.ValueKind == JsonValueKind.Object && hero.Value.TryGetProperty("abilities", out var list) && list.ValueKind == JsonValueKind.Array)
+                    foreach (var item in list.EnumerateArray())
+                        if (item.GetString() is { } key) keys.Add(key);
+
+        if (keys.Count == 0 && allAbilities.ValueKind == JsonValueKind.Object)
+            foreach (var ability in allAbilities.EnumerateObject()) keys.Add(ability.Name);
+
+        return keys.Where(key => !string.IsNullOrWhiteSpace(key) && !key.Contains('/') && !key.Contains('\\')
+                                 && !IconIndex.ExcludedAbilityPrefixes.Any(p => key.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
     }
 
     private static HttpClient CreateHttpClient()

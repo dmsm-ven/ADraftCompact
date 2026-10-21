@@ -1,4 +1,4 @@
-﻿using ADraftCompact.Models;
+using ADraftCompact.Models;
 using ADraftCompact.Services;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -19,8 +19,6 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
     private const int WsExToolWindow = 0x00000080;
     private const int WsExNoActivate = 0x08000000;
     private const int WsExLayered = 0x00080000;
-    private const int WmNcLButtonDown = 0x00A1;
-    private const int HtCaption = 2;
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoMove = 0x0002;
     private const uint SwpNoZOrder = 0x0004;
@@ -28,13 +26,6 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
     private const uint SwpFrameChanged = 0x0020;
     private bool _positionEditMode;
     private bool _clickThroughEnabled;
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool ReleaseCapture();
-
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -64,16 +55,14 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
     public Thickness AbilityMargin => new(0, 0, Settings.AbilityGap, 0);
     public bool ShowTeamNames => Settings.ShowTeamNames;
     public Visibility TeamNamesVisibility => ShowTeamNames ? Visibility.Visible : Visibility.Collapsed;
-    public Brush OverlayBackground => _positionEditMode
-        ? new SolidColorBrush(Color.FromArgb(75, 20, 150, 220))
-        : new SolidColorBrush(Color.FromArgb((byte)Math.Clamp(Settings.OverlayOpacityPercent * 255 / 100, 0, 255), ParseColor(Settings.OverlayColorHex).R, ParseColor(Settings.OverlayColorHex).G, ParseColor(Settings.OverlayColorHex).B));
+    public Brush OverlayBackground => new SolidColorBrush(Color.FromArgb((byte)Math.Clamp(Settings.OverlayOpacityPercent * 255 / 100, 0, 255), ParseColor(Settings.OverlayColorHex).R, ParseColor(Settings.OverlayColorHex).G, ParseColor(Settings.OverlayColorHex).B));
     public Brush IconBorderBrush => new SolidColorBrush(ParseColor(Settings.IconBorderColorHex));
     public Thickness IconBorderThickness => new(Settings.IconBorderThickness);
     /// <summary>The smallest rounding that is still visible; a large radius is deliberately not offered.</summary>
     private const double RoundedIconRadius = 3;
     public CornerRadius IconCornerRadius => new(Settings.RoundIconBorders ? RoundedIconRadius : 0);
-    public Brush OverlayBorderBrush => _positionEditMode ? Brushes.DeepSkyBlue : Brushes.Transparent;
-    public Thickness OverlayBorderThickness => _positionEditMode ? new Thickness(2) : new Thickness(0);
+    public Brush OverlayBorderBrush => Brushes.Transparent;
+    public Thickness OverlayBorderThickness => new(0);
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public OverlayWindow()
@@ -92,22 +81,6 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
             SetClickThrough(true);
             SetNoActivate(true);
         };
-
-        PreviewMouseLeftButtonDown += (_, e) =>
-        {
-            if (!_positionEditMode || e.ChangedButton != System.Windows.Input.MouseButton.Left)
-                return;
-
-            e.Handled = true;
-            var handle = new WindowInteropHelper(this).Handle;
-            if (handle == IntPtr.Zero)
-                return;
-
-            // Ask Windows to move the window as a standard caption-drag operation.
-            // This is more reliable than DragMove for a transparent WPF overlay.
-            ReleaseCapture();
-            SendMessage(handle, WmNcLButtonDown, (IntPtr)HtCaption, IntPtr.Zero);
-        };
     }
 
     public void ApplySettings(OverlaySettings settings)
@@ -118,20 +91,46 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
         NotifySettingsChanged();
     }
 
+    /// <summary>
+    /// Position editing: the overlay itself stays transparent and click-through (nothing about it changes, so it cannot jump);
+    /// a small window with a real title bar is shown next to it, and dragging that title moves the overlay along.
+    /// </summary>
     public void BeginPositionEdit()
     {
         if (!IsVisible)
             Show();
 
         _positionEditMode = true;
+        CloseMoveHandle();
 
-        // Allow interaction with the window.
-        SetClickThrough(false);
-        SetNoActivate(false);
+        const double handleHeight = 40;
+        var handle = new Window
+        {
+            Title = "Move overlay",
+            WindowStyle = WindowStyle.ToolWindow,
+            ResizeMode = ResizeMode.NoResize,
+            ShowInTaskbar = false,
+            Topmost = true,
+            Width = Math.Max(Width, 200),
+            Height = handleHeight,
+            WindowStartupLocation = WindowStartupLocation.Manual,
+            Content = new System.Windows.Controls.Border()
+        };
+        // Above the overlay when there is room, otherwise on top of its upper edge.
+        handle.Left = Left;
+        handle.Top = Math.Max(0, Top - handleHeight);
 
-        NotifySettingsChanged();
-
-        Activate();
+        var dx = Left - handle.Left;
+        var dy = Top - handle.Top;
+        handle.LocationChanged += (_, _) =>
+        {
+            if (!_positionEditMode) return;
+            Left = handle.Left + dx;
+            Top = handle.Top + dy;
+        };
+        handle.Closed += (_, _) => { if (ReferenceEquals(_moveHandle, handle)) _moveHandle = null; };
+        _moveHandle = handle;
+        handle.Show();
     }
 
     public void EndPositionEdit(bool savePosition)
@@ -143,11 +142,17 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
         }
 
         _positionEditMode = false;
-
-        SetClickThrough(true);
-        SetNoActivate(true);
-
+        CloseMoveHandle();
         NotifySettingsChanged();
+    }
+
+    private Window? _moveHandle;
+
+    private void CloseMoveHandle()
+    {
+        var handle = _moveHandle;
+        _moveHandle = null;
+        handle?.Close();
     }
 
     public void ApplySettingsAndSave(OverlaySettings settings)
