@@ -101,7 +101,7 @@ public sealed class HeroNameReader
         var h = bandHeight * Scale;
         Cv2.FindContours(binary, out var contours, out _, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
         var letters = contours.Select(contour => Cv2.BoundingRect(contour))
-            .Where(r => r.Height >= 0.25 * h && r.Height <= 0.8 * h && r.Width <= 1.6 * r.Height + 4 && r.Width >= 0.04 * h)
+            .Where(r => r.Height >= 0.25 * h && r.Height <= 0.8 * h && r.Width <= 1.6 * r.Height + 4 && r.Width >= 0.02 * h)
             .ToList();
         if (letters.Count == 0) return null;
 
