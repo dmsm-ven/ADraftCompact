@@ -4,7 +4,7 @@
 - Assets are stored in the `Assets` folder next to the executable (see `AppPaths`).
 - Existing files are skipped, so the downloader can be rerun to fetch missing assets.
 - Network sources: OpenDota constants API and the public Steam CDN. If a network request fails, retry the download later.
-- `IconIndex` builds and caches the hero and ability icon descriptor index (`icons.index` in `%LocalAppData%\AbilityDraftOverlay`).
+- `IconIndex` builds and caches the hero and ability icon descriptor index (`icons.index` next to the exe).
 - `DraftLayoutProvider` loads slot coordinates from `Layouts\ability_draft_1920x1080.json` or the user layout `layout.1920x1080.json` (next to the executable).
 - `ScreenshotRecognitionService` recognizes slots using the layout and saves a debug image with slot outlines.
 - `HeroNameReader` reads hero-name text using built-in Windows OCR; `HeroNameMatcher` fuzzy-matches it against the hero catalog.

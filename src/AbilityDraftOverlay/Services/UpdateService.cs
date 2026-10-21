@@ -11,7 +11,7 @@ public sealed record UpdateInfo(Version Version, string DownloadUrl, long Size);
 
 /// <summary>
 /// Self-update from GitHub Releases. The release asset is a .zip holding the single exe.
-/// Only the exe is replaced; Assets, app.log, layout override and the AppData settings are never touched.
+/// Only the exe is replaced; Assets, app.log, layout override and the settings files are never touched.
 /// </summary>
 public sealed class UpdateService
 {
