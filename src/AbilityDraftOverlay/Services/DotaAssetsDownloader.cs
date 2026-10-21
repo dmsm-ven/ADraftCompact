@@ -189,30 +189,34 @@ public sealed class DotaAssetsDownloader
         return client;
     }
 
-    /// <summary>OpenDota is sometimes slow: retry a few times instead of waiting silently.</summary>
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// HttpClient.Timeout only covers the response headers (we stream the body), so a connection that stalls mid-body would wait forever.
+    /// Every attempt therefore gets its own token that expires after <see cref="RequestTimeout"/> for headers and body together.
+    /// </summary>
     private async Task<JsonDocument> GetJsonWithRetryAsync(Uri uri, string what, Action<string>? progress, CancellationToken cancellationToken)
     {
         for (var attempt = 1; ; attempt++)
         {
+            progress?.Invoke(attempt == 1 ? $"Fetching {what} from OpenDota..." : $"Fetching {what} from OpenDota (attempt {attempt} of 3)...");
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(RequestTimeout);
             try
             {
-                progress?.Invoke(attempt == 1 ? $"Fetching {what} from OpenDota..." : $"Fetching {what} from OpenDota (attempt {attempt} of 3)...");
-                return await GetJsonAsync(uri, cancellationToken);
+                using var response = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+                response.EnsureSuccessStatusCode();
+                await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
+                return await JsonDocument.ParseAsync(stream, cancellationToken: timeout.Token);
             }
-            catch (Exception ex) when (attempt < 3 && !cancellationToken.IsCancellationRequested
-                                       && ex is HttpRequestException or TaskCanceledException or JsonException)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested
+                                       && ex is HttpRequestException or OperationCanceledException or JsonException or IOException)
             {
                 _logger.LogWarning("OpenDota request {Url} failed (attempt {Attempt}): {Message}", uri, attempt, ex.Message);
+                if (attempt >= 3)
+                    throw new HttpRequestException($"OpenDota did not respond ({what}): {ex.Message}", ex);
             }
         }
-    }
-
-    private static async Task<JsonDocument> GetJsonAsync(Uri uri, CancellationToken cancellationToken)
-    {
-        using var response = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
     }
 
     private static async Task SaveJsonAsync(JsonElement json, string path, CancellationToken cancellationToken)
@@ -233,6 +237,9 @@ public sealed class DotaAssetsDownloader
         var temporaryPath = path + ".download";
         try
         {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(RequestTimeout);
+            cancellationToken = timeout.Token; // headers + body must finish in time
             using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             if (response.StatusCode == HttpStatusCode.NotFound || response.StatusCode == HttpStatusCode.Gone)
                 return DownloadOutcome.Missing;

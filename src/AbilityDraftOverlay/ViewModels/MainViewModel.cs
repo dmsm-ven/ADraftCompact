@@ -235,6 +235,7 @@ public partial class MainViewModel : ObservableObject
             _iconIndex.Invalidate(); // new icons -> rebuild the descriptor index on next recognition
             UpdateResourceSummary();
             AssetsStatusText = summary;
+            if (result.Failed > 0 && !HasIcons) ShowNetworkWarning();
         }
         catch (Exception ex)
         {
