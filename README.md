@@ -34,7 +34,6 @@ Windows overlay for Dota 2 Ability Draft: recognizes the heroes and abilities of
 - 1920x1080 screen resolution.
 - Dota 2 in **Borderless Window** or **Windowed** mode, game language English.
 - Windows OCR language **English (United States)** installed.
-- Internet access to download the icon resources and updates.
 
 ## External resources
 
