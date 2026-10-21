@@ -1,4 +1,4 @@
-﻿using ADraftCompact.Models;
+using ADraftCompact.Models;
 
 namespace ADraftCompact.Services;
 
@@ -11,13 +11,30 @@ public static class HeroNameMatcher
 {
     private const string NoHeroText = "NOHERO";
 
+    private static readonly Dictionary<char, char> DigitLookalikes = new()
+    {
+        ['1'] = 'I', ['|'] = 'I', ['!'] = 'I', ['0'] = 'O', ['5'] = 'S', ['8'] = 'B', ['2'] = 'Z', ['6'] = 'G'
+    };
+
+    /// <summary>Letter pairs that OCR mixes up: replacing one by the other costs less than a real mistake.</summary>
+    private static readonly HashSet<string> Confusable = new()
+    {
+        "IL", "IT", "IJ", "LT", "CG", "CO", "GO", "OD", "OQ", "HN", "MN", "UV", "EF", "BR", "BE", "SZ", "AR", "DQ", "RK", "KX", "VY", "WM"
+    };
+
+    private static double SubstitutionCost(char a, char b) =>
+        a == b ? 0 : Confusable.Contains(a < b ? $"{a}{b}" : $"{b}{a}") ? 0.4 : 1;
+
     /// <summary>Letters only, upper case: OCR is unreliable about spaces, hyphens and apostrophes.</summary>
     public static string Normalize(string text)
     {
         Span<char> buffer = stackalloc char[text.Length];
         var length = 0;
         foreach (var ch in text)
+        {
             if (char.IsLetter(ch) && ch < 128) buffer[length++] = char.ToUpperInvariant(ch);
+            else if (DigitLookalikes.TryGetValue(ch, out var letter)) buffer[length++] = letter; // "L1CH" -> "LICH", not "LCH"
+        }
         return new string(buffer[..length]);
     }
 
@@ -28,11 +45,11 @@ public static class HeroNameMatcher
         var b = Normalize(name);
         if (a.Length == 0 || b.Length == 0) return 0;
 
-        var full = 1.0 - Levenshtein(a, b) / (double)Math.Max(a.Length, b.Length);
+        var full = 1.0 - Levenshtein(a, b) / Math.Max(a.Length, b.Length);
         if (a.Length <= b.Length) return full;
 
         // The art behind the text can add junk after the name: also compare with a prefix of the same length.
-        var prefix = 1.0 - Levenshtein(a[..b.Length], b) / (double)b.Length;
+        var prefix = 1.0 - Levenshtein(a[..b.Length], b) / b.Length;
         return Math.Max(full, prefix * 0.95);
     }
 
@@ -68,16 +85,16 @@ public static class HeroNameMatcher
         return new HeroNameMatch(best, bestScore, bestScore - secondScore, second, IsNoHero: false);
     }
 
-    private static int Levenshtein(string a, string b)
+    private static double Levenshtein(string a, string b)
     {
-        var previous = new int[b.Length + 1];
-        var current = new int[b.Length + 1];
+        var previous = new double[b.Length + 1];
+        var current = new double[b.Length + 1];
         for (var j = 0; j <= b.Length; j++) previous[j] = j;
         for (var i = 1; i <= a.Length; i++)
         {
             current[0] = i;
             for (var j = 1; j <= b.Length; j++)
-                current[j] = Math.Min(Math.Min(previous[j] + 1, current[j - 1] + 1), previous[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
+                current[j] = Math.Min(Math.Min(previous[j] + 1, current[j - 1] + 1), previous[j - 1] + SubstitutionCost(a[i - 1], b[j - 1]));
             (previous, current) = (current, previous);
         }
         return previous[b.Length];

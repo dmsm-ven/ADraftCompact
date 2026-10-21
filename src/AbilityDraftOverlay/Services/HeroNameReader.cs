@@ -36,30 +36,28 @@ public sealed class HeroNameReader
         using var crop = new Mat(screenshot, new Rect(band.X, band.Y, band.Width, band.Height));
         using var binary = Binarize(crop);
 
-        // 1) Only letter-sized shapes, cropped tightly around the text. Bright parts of the animated art next to
-        //    the name (it was a black blob beside "BANE") otherwise make Windows OCR return nothing.
-        IReadOnlyList<string> lines = Array.Empty<string>();
+        // Several independent readings; the matcher takes the best line of all of them, so one bad reading of a short
+        // name ("LICH", "LINA") cannot hide a good one.
+        // 1) Saturated + bright pixels, only letter-sized shapes cropped tightly around the text. Bright parts of the animated
+        //    art next to the name (a black blob beside "BANE") otherwise make Windows OCR return nothing.
+        var lines = new List<string>();
         using (var cleaned = BuildCleaned(binary, band.Height))
-            if (cleaned is not null) lines = Recognize(engine, cleaned);
+            if (cleaned is not null) lines.AddRange(Recognize(engine, cleaned));
 
-        // 2) Fallback: the whole band as is.
+        // 2) The text is white: keep only pixels that are bright in every channel (fiery red art behind "LINA" is as saturated as text).
+        using var white = BinarizeWhite(crop);
+        using (var cleaned = BuildCleaned(white, band.Height))
+            if (cleaned is not null) lines.AddRange(Recognize(engine, cleaned));
+
+        // 3) Fallback: the whole band as is.
         if (lines.Count == 0)
         {
             using var whole = BuildWhole(binary);
-            lines = Recognize(engine, whole);
-        }
-
-        // 3) Still nothing (e.g. fiery red art behind "LINA" looks as saturated as the text): the text is white,
-        //    so keep only pixels that are bright in every channel.
-        if (lines.Count == 0)
-        {
-            using var white = BinarizeWhite(crop);
-            using (var cleaned = BuildCleaned(white, band.Height))
-                if (cleaned is not null) lines = Recognize(engine, cleaned);
+            lines.AddRange(Recognize(engine, whole));
             if (lines.Count == 0)
             {
-                using var whole = BuildWhole(white);
-                lines = Recognize(engine, whole);
+                using var wholeWhite = BuildWhole(white);
+                lines.AddRange(Recognize(engine, wholeWhite));
             }
         }
 
@@ -69,6 +67,7 @@ public sealed class HeroNameReader
     }
 
     private const int Scale = 4;
+    private const int MinOcrWidth = 360;
 
     /// <summary>BGR crop -> upscaled binary mask of near-white pixels (min channel is high).</summary>
     private static Mat BinarizeWhite(Mat bgr)
@@ -169,7 +168,9 @@ public sealed class HeroNameReader
         using var inverted = new Mat();
         Cv2.BitwiseNot(whiteText, inverted);
         using var padded = new Mat();
-        Cv2.CopyMakeBorder(inverted, padded, border, border, border, border, BorderTypes.Constant, Scalar.All(255));
+        // Windows OCR is unreliable on very narrow images (a four-letter name): pad to a minimum width.
+        var sideExtra = Math.Max(0, (MinOcrWidth - (inverted.Width + 2 * border)) / 2);
+        Cv2.CopyMakeBorder(inverted, padded, border, border, border + sideExtra, border + sideExtra, BorderTypes.Constant, Scalar.All(255));
         var bgra = new Mat();
         Cv2.CvtColor(padded, bgra, ColorConversionCodes.GRAY2BGRA);
         return bgra;
