@@ -1,12 +1,11 @@
-﻿using System.ComponentModel;
-using System.Runtime.InteropServices;
-using System.Windows.Interop;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Media;
-using ADraftCompact.Models;
+﻿using ADraftCompact.Models;
 using ADraftCompact.Services;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
 
 namespace ADraftCompact.Views;
 
@@ -135,7 +134,7 @@ public partial class OverlaySettingsWindow : Window
         UpdateLabels();
     }
 
-    private static int NormalizeIconSize(int value) => Math.Clamp((int)Math.Round(value / 5.0) * 5, 15, 180);
+    private static int NormalizeIconSize(int value) => Math.Clamp((int)value, 15, 150);
 
     private void PositionButton_Click(object sender, RoutedEventArgs e)
     {
