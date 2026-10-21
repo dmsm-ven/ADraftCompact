@@ -7,11 +7,19 @@
     <RootNamespace>AbilityDraftOverlay</RootNamespace>
     <AssemblyName>AbilityDraftOverlay</AssemblyName>
     <ApplicationIcon>app.ico</ApplicationIcon>
+    <!-- Release version: shown in the window title and compared with the latest GitHub release. Tag releases as v0.1.0. -->
+    <Version>0.1.0</Version>
+    <!-- Single-file release: dotnet publish -c Release -r win-x64 (see README / publish.ps1) -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
   </PropertyGroup>
   <ItemGroup>
-    <None Update="Layouts\*.json" CopyToOutputDirectory="PreserveNewest" />
-    <!-- Also read at run time for the tray icon. -->
-    <None Update="app.ico" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Embedded so the release is one exe; layout.1920x1080.json next to the exe still overrides it. -->
+    <EmbeddedResource Include="Layouts\ability_draft_1920x1080.json" LogicalName="ability_draft_1920x1080.json" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />

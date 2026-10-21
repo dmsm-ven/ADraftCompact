@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Text.Json;
 using ADraftCompact.Models;
 using Microsoft.Extensions.Logging;
@@ -22,17 +22,26 @@ public sealed class DraftLayoutProvider
 
     public DraftLayoutProvider(ILogger<DraftLayoutProvider> logger) => _logger = logger;
 
-    public static string BundledLayoutPath => Path.Combine(AppContext.BaseDirectory, "Layouts", "ability_draft_1920x1080.json");
+    private const string EmbeddedLayoutName = "ability_draft_1920x1080.json";
 
     public DraftLayout Load()
     {
-        var path = File.Exists(AppPaths.UserLayout) ? AppPaths.UserLayout : BundledLayoutPath;
-        if (!File.Exists(path)) throw new FileNotFoundException("Draft layout file not found.", path);
+        var path = File.Exists(AppPaths.UserLayout) ? AppPaths.UserLayout : "(embedded)";
+        string json;
+        if (path != "(embedded)")
+            json = File.ReadAllText(path);
+        else
+        {
+            using var stream = typeof(DraftLayoutProvider).Assembly.GetManifestResourceStream(EmbeddedLayoutName)
+                               ?? throw new FileNotFoundException("Embedded draft layout not found.", EmbeddedLayoutName);
+            using var reader = new StreamReader(stream);
+            json = reader.ReadToEnd();
+        }
 
         DraftLayout layout;
         try
         {
-            layout = JsonSerializer.Deserialize<DraftLayout>(File.ReadAllText(path), Options)
+            layout = JsonSerializer.Deserialize<DraftLayout>(json, Options)
                      ?? throw new InvalidDataException("Draft layout file is empty.");
         }
         catch (JsonException ex)

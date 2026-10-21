@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Windows;
 using ADraftCompact.Services;
 using ADraftCompact.Logging;
@@ -58,6 +58,7 @@ public partial class App : Application
                 services.AddSingleton<ScreenshotRecognitionService>();
                 services.AddSingleton<OverlayWindow>();
                 services.AddSingleton<OverlaySettingsService>();
+                services.AddSingleton<UpdateService>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })
@@ -72,6 +73,8 @@ public partial class App : Application
 
         await _host.StartAsync();
         var services = _host.Services;
+        if (await TryUpdateAsync(services))
+            return;
         var mainWindow = services.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
 
@@ -100,6 +103,36 @@ public partial class App : Application
         mainWindow.Show();
         if (!report.IsOk)
             MessageBox.Show(mainWindow, report.ToWarningText(), "Ability Draft Overlay", MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    /// <summary>Quiet start-up update: check GitHub Releases, tell the user, download, hand over to the swap script. True = app is exiting.</summary>
+    private async Task<bool> TryUpdateAsync(IServiceProvider services)
+    {
+        if (System.Diagnostics.Debugger.IsAttached || Environment.GetCommandLineArgs().Contains("--no-update"))
+            return false;
+
+        var updater = services.GetRequiredService<UpdateService>();
+        var info = await updater.CheckAsync();
+        if (info is null)
+            return false;
+
+        MessageBox.Show($"Version v{AppVersion.Format(info.Version)} is available (current v{AppVersion.Text}).\n\n" +
+                        "The update will now be downloaded and the application restarted.\n" +
+                        "Your Assets, settings and log files are kept.",
+            "Ability Draft Overlay", MessageBoxButton.OK, MessageBoxImage.Information);
+
+        // The update window is the first window, so WPF would treat it as the main window and exit when it closes.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        var window = new UpdateWindow(updater, info);
+        window.ShowDialog();
+        MainWindow = null;
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
+        if (!window.ReadyToRestart)
+            return false;
+
+        services.GetRequiredService<AppLifecycle>().IsExiting = true;
+        Shutdown();
+        return true;
     }
 
     private static void RestoreMainWindow(Window window)

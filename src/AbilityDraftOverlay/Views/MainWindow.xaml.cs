@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Windows;
 using ADraftCompact.Services;
 using ADraftCompact.ViewModels;
@@ -14,6 +14,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         _lifecycle = lifecycle;
         DataContext = viewModel;
+        Title = $"Ability Draft Overlay | v{AppVersion.Text}";
         if (viewModel.IsDebugMode)
         {
             // --debug-mode: room for the event log.
