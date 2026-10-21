@@ -1,4 +1,4 @@
-﻿<Window x:Class="ADraftCompact.Views.OverlayWindow"
+<Window x:Class="ADraftCompact.Views.OverlayWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:views="clr-namespace:ADraftCompact.Views"
@@ -23,7 +23,8 @@
     </Window.Resources>
     <Border x:Name="OverlayFrame" Padding="3" Background="{Binding OverlayBackground}"
             BorderBrush="{Binding OverlayBorderBrush}" BorderThickness="{Binding OverlayBorderThickness}" CornerRadius="3">
-        <StackPanel>
+        <StackPanel Orientation="{Binding TeamsOrientation}">
+          <StackPanel>
             <TextBlock Margin="1,0,1,3" Foreground="#FFE8EDF5" FontSize="10" FontWeight="Bold"
                        Text="Radiant" Visibility="{Binding TeamNamesVisibility}" />
             <ItemsControl ItemsSource="{Binding RadiantRows}">
@@ -43,7 +44,9 @@
                     </StackPanel>
                 </DataTemplate></ItemsControl.ItemTemplate>
             </ItemsControl>
-            <Border Height="{Binding TeamGap}" Background="Transparent" />
+          </StackPanel>
+            <Border Width="{Binding TeamGapWidth}" Height="{Binding TeamGapHeight}" Background="Transparent" />
+          <StackPanel>
             <TextBlock Margin="1,0,1,3" Foreground="#FFE8EDF5" FontSize="10" FontWeight="Bold"
                        Text="Dire" Visibility="{Binding TeamNamesVisibility}" />
             <ItemsControl ItemsSource="{Binding DireRows}">
@@ -57,6 +60,7 @@
                     </StackPanel>
                 </DataTemplate></ItemsControl.ItemTemplate>
             </ItemsControl>
+          </StackPanel>
         </StackPanel>
     </Border>
 </Window>

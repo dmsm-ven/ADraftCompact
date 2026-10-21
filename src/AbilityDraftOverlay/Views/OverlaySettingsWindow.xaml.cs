@@ -1,4 +1,4 @@
-﻿using ADraftCompact.Models;
+using ADraftCompact.Models;
 using ADraftCompact.Services;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
@@ -41,6 +41,7 @@ public partial class OverlaySettingsWindow : Window
             TeamGapSlider.Value = _settings.TeamGap;
             ShowNamesCheckBox.IsChecked = _settings.ShowTeamNames;
             RoundBordersCheckBox.IsChecked = _settings.RoundIconBorders;
+            (_settings.HorizontalLayout ? HorizontalTile : VerticalTile).IsChecked = true;
             HotkeyBox.Text = _hotkeys.Current ?? _settings.RecognizeHotkey;
             UpdateColorButtons();
             UpdateLabels();
@@ -53,6 +54,8 @@ public partial class OverlaySettingsWindow : Window
         ShowNamesCheckBox.Unchecked += (_, _) => ApplyControlsLive();
         RoundBordersCheckBox.Checked += (_, _) => ApplyControlsLive();
         RoundBordersCheckBox.Unchecked += (_, _) => ApplyControlsLive();
+        VerticalTile.Checked += (_, _) => ApplyControlsLive();
+        HorizontalTile.Checked += (_, _) => ApplyControlsLive();
     }
 
     private const string HotkeyDefaultHint = "Recognize abilities (works inside the game)";
@@ -125,6 +128,7 @@ public partial class OverlaySettingsWindow : Window
         _settings.TeamGap = (int)TeamGapSlider.Value;
         _settings.ShowTeamNames = ShowNamesCheckBox.IsChecked == true;
         _settings.RoundIconBorders = RoundBordersCheckBox.IsChecked == true;
+        _settings.HorizontalLayout = HorizontalTile.IsChecked == true;
         if (_positionEditing)
         {
             _settings.Left = _overlay.Left;

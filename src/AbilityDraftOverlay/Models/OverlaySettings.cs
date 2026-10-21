@@ -1,4 +1,4 @@
-﻿namespace ADraftCompact.Models;
+namespace ADraftCompact.Models;
 
 public sealed class OverlaySettings
 {
@@ -12,6 +12,8 @@ public sealed class OverlaySettings
     public int PlayerRowGap { get; set; } = 4;
     public int HeroGap { get; set; } = 4;
     public int AbilityGap { get; set; } = 4;
+    /// <summary>False: Radiant above Dire. True: Radiant on the left, Dire to its right.</summary>
+    public bool HorizontalLayout { get; set; }
     public int TeamGap { get; set; } = 30;
     public bool ShowTeamNames { get; set; } = true;
     /// <summary>Slightly rounded corners on hero and ability icons (and their borders).</summary>

@@ -50,6 +50,11 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
     public double HeroGap => Settings.HeroGap;
     public double AbilityGap => Settings.AbilityGap;
     public double TeamGap => Settings.TeamGap;
+    /// <summary>Vertical: Radiant above Dire. Horizontal: Radiant on the left, Dire to its right.</summary>
+    public System.Windows.Controls.Orientation TeamsOrientation => Settings.HorizontalLayout
+        ? System.Windows.Controls.Orientation.Horizontal : System.Windows.Controls.Orientation.Vertical;
+    public double TeamGapWidth => Settings.HorizontalLayout ? Settings.TeamGap : 0;
+    public double TeamGapHeight => Settings.HorizontalLayout ? 0 : Settings.TeamGap;
     public Thickness PlayerRowMargin => new(0, 0, 0, Settings.PlayerRowGap);
     public Thickness HeroMargin => new(0, 0, Settings.HeroGap, 0);
     public Thickness AbilityMargin => new(0, 0, Settings.AbilityGap, 0);
@@ -165,8 +170,11 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
 
     private void UpdateSize()
     {
-        var width = HeroWidthFor(Settings.IconSize) + Settings.IconSize * 4 + Settings.HeroGap + Settings.AbilityGap * 3 + Settings.IconBorderThickness * 10 + 8;
-        var height = Settings.IconSize * 10 + Settings.PlayerRowGap * 10 + Settings.TeamGap + (Settings.ShowTeamNames ? 32 : 0) + 12;
+        var row = HeroWidthFor(Settings.IconSize) + Settings.IconSize * 4 + Settings.HeroGap + Settings.AbilityGap * 3 + Settings.IconBorderThickness * 10;
+        var width = Settings.HorizontalLayout ? row * 2 + Settings.TeamGap + 8 : row + 8;
+        var height = Settings.HorizontalLayout
+            ? Settings.IconSize * 5 + Settings.PlayerRowGap * 5 + (Settings.ShowTeamNames ? 16 : 0) + 12
+            : Settings.IconSize * 10 + Settings.PlayerRowGap * 10 + Settings.TeamGap + (Settings.ShowTeamNames ? 32 : 0) + 12;
         Width = Math.Max(80, width);
         Height = Math.Max(80, height);
     }
@@ -224,6 +232,7 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(OverlayBackground)); OnPropertyChanged(nameof(IconBorderBrush));
         OnPropertyChanged(nameof(IconBorderThickness)); OnPropertyChanged(nameof(IconCornerRadius)); OnPropertyChanged(nameof(OverlayBorderBrush));
         OnPropertyChanged(nameof(OverlayBorderThickness));
+        OnPropertyChanged(nameof(TeamsOrientation)); OnPropertyChanged(nameof(TeamGapWidth)); OnPropertyChanged(nameof(TeamGapHeight));
     }
 
     private static Color ParseColor(string? value) => ColorConverter.ConvertFromString(string.IsNullOrWhiteSpace(value) ? "#FF343A43" : value) is Color color ? color : Colors.DimGray;
