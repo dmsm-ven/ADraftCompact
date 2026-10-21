@@ -1,21 +1,19 @@
-﻿using System.IO;
+using System.IO;
 
 namespace ADraftCompact.Services;
 
 /// <summary>
-/// Where the application keeps its files.
-/// %LocalAppData%\AbilityDraftOverlay holds exactly two files, both directly in its root: the overlay settings and the icon index.
-/// Everything else (log, debug image, downloaded assets, optional layout override) lives next to the executable.
+/// Where the application keeps its files: everything lives next to the executable (the folder must be writable).
 /// </summary>
 public static class AppPaths
 {
-    /// <summary>%LocalAppData%\AbilityDraftOverlay - no sub-folders.</summary>
-    public static string Root { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AbilityDraftOverlay");
+    /// <summary>Folder of the settings files (same as the executable folder).</summary>
+    public static string Root => AppDirectory;
 
     /// <summary>Folder of the executable.</summary>
     public static string AppDirectory { get; } = AppContext.BaseDirectory;
 
+    public static string AppSettingsFile => Path.Combine(Root, "settings.json");
     public static string OverlaySettingsFile => Path.Combine(Root, "overlay-settings.json");
     public static string IconIndexFile => Path.Combine(Root, "icons.index");
 

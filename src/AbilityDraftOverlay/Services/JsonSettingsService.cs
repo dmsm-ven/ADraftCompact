@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Text.Json;
 using ADraftCompact.Models;
 
@@ -8,9 +8,7 @@ public sealed class JsonSettingsService : ISettingsService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    private static string SettingsPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "AbilityDraftOverlay", "settings.json");
+    private static string SettingsPath => AppPaths.AppSettingsFile;
 
     public async Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default)
     {
