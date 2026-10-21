@@ -1,4 +1,4 @@
-﻿using ADraftCompact.Models;
+using ADraftCompact.Models;
 using ADraftCompact.Views;
 using ADraftCompact.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -214,25 +214,29 @@ public partial class MainViewModel : ObservableObject
             }
             if (!available)
             {
-                StatusText = AssetsStatusText = "Asset sources are unavailable. Check your network connection.";
-                AddEvent(DraftEventKind.Error, "resource-check", StatusText);
+                AssetsStatusText = "Asset sources are unavailable. Check your network connection.";
+                AddEvent(DraftEventKind.Error, "resource-check", AssetsStatusText);
                 _logger.LogWarning("Download cancelled: OpenDota is unavailable");
                 return;
             }
 
-            StatusText = "Downloading assets...";
-            var result = await _assetsDownloader.DownloadAsync(message => Application.Current.Dispatcher.Invoke(() => StatusText = AssetsStatusText = message));
-            StatusText = $"Download complete: {result.Downloaded} new, {result.Skipped} skipped, {result.Failed} failed.";
-            AddEvent(result.Failed > 0 ? DraftEventKind.Error : DraftEventKind.Resource, "assets", StatusText);
-            _logger.LogInformation("{Summary}", StatusText);
+            // Progress text goes to the overlay settings window only; the main window just shows the file count.
+            var result = await _assetsDownloader.DownloadAsync(message => Application.Current.Dispatcher.Invoke(() =>
+            {
+                AssetsStatusText = message;
+                if (message.StartsWith("Downloading images", StringComparison.Ordinal)) UpdateResourceSummary(keepAssetsStatus: true);
+            }));
+            var summary = $"Download complete: {result.Downloaded} new, {result.Skipped} skipped, {result.Failed} failed.";
+            AddEvent(result.Failed > 0 ? DraftEventKind.Error : DraftEventKind.Resource, "assets", summary);
+            _logger.LogInformation("{Summary}", summary);
             _iconIndex.Invalidate(); // new icons -> rebuild the descriptor index on next recognition
             UpdateResourceSummary();
-            AssetsStatusText = StatusText;
+            AssetsStatusText = summary;
         }
         catch (Exception ex)
         {
-            StatusText = AssetsStatusText = $"Asset download failed: {ex.Message}";
-            AddEvent(DraftEventKind.Error, "download", StatusText);
+            AssetsStatusText = $"Asset download failed: {ex.Message}";
+            AddEvent(DraftEventKind.Error, "download", AssetsStatusText);
             _logger.LogError(ex, "Asset download failed");
         }
         finally { IsBusy = false; }
@@ -262,13 +266,13 @@ public partial class MainViewModel : ObservableObject
         _overlayWindow.UpdateSession(update.Session);
     }
 
-    public void UpdateResourceSummary()
+    public void UpdateResourceSummary(bool keepAssetsStatus = false)
     {
         try
         {
             var info = DotaAssetsDownloader.GetStorageInfo();
             ResourceSummary = $"Assets: {info.FileCount:N0} files · {FormatBytes(info.TotalBytes)}";
-            AssetsStatusText = ResourceSummary;
+            if (!keepAssetsStatus) AssetsStatusText = ResourceSummary;
             _logger.LogInformation("Local assets: {Count} files, {Bytes} bytes", info.FileCount, info.TotalBytes);
         }
         catch (Exception ex)

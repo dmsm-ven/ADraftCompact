@@ -64,21 +64,18 @@ public sealed class DotaAssetsDownloader
         var downloaded = 0;
         var skipped = 0;
 
-        progress?.Invoke("Fetching hero list from OpenDota...");
         _logger.LogInformation("Requesting hero reference: {Url}", OpenDotaHeroes);
-        using var heroesDocument = await GetJsonAsync(OpenDotaHeroes, cancellationToken);
+        using var heroesDocument = await GetJsonWithRetryAsync(OpenDotaHeroes, "hero list", progress, cancellationToken);
         await SaveJsonAsync(heroesDocument.RootElement, Path.Combine(dataDirectory, "heroes.json"), cancellationToken);
 
         _logger.LogInformation("Hero reference loaded: {Count} entries", heroesDocument.RootElement.EnumerateObject().Count());
-        progress?.Invoke("Fetching ability list from OpenDota...");
         _logger.LogInformation("Requesting ability reference: {Url}", OpenDotaAbilities);
-        using var abilitiesDocument = await GetJsonAsync(OpenDotaAbilities, cancellationToken);
+        using var abilitiesDocument = await GetJsonWithRetryAsync(OpenDotaAbilities, "ability list", progress, cancellationToken);
         await SaveJsonAsync(abilitiesDocument.RootElement, Path.Combine(dataDirectory, "abilities.json"), cancellationToken);
 
         _logger.LogInformation("Ability reference loaded: {Count} entries", abilitiesDocument.RootElement.EnumerateObject().Count());
-        progress?.Invoke("Fetching hero-ability mappings from OpenDota...");
         _logger.LogInformation("Requesting hero-ability mappings: {Url}", OpenDotaHeroAbilities);
-        using var heroAbilitiesDocument = await GetJsonAsync(OpenDotaHeroAbilities, cancellationToken);
+        using var heroAbilitiesDocument = await GetJsonWithRetryAsync(OpenDotaHeroAbilities, "hero-ability mappings", progress, cancellationToken);
         await SaveJsonAsync(heroAbilitiesDocument.RootElement, Path.Combine(dataDirectory, "hero_abilities.json"), cancellationToken);
 
         var jobs = new List<(string Url, string Path)>();
@@ -183,6 +180,24 @@ public sealed class DotaAssetsDownloader
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("AbilityDraftOverlay/0.1 (local asset downloader)");
         return client;
+    }
+
+    /// <summary>OpenDota is sometimes slow: retry a few times instead of waiting silently.</summary>
+    private async Task<JsonDocument> GetJsonWithRetryAsync(Uri uri, string what, Action<string>? progress, CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                progress?.Invoke(attempt == 1 ? $"Fetching {what} from OpenDota..." : $"Fetching {what} from OpenDota (attempt {attempt} of 3)...");
+                return await GetJsonAsync(uri, cancellationToken);
+            }
+            catch (Exception ex) when (attempt < 3 && !cancellationToken.IsCancellationRequested
+                                       && ex is HttpRequestException or TaskCanceledException or JsonException)
+            {
+                _logger.LogWarning("OpenDota request {Url} failed (attempt {Attempt}): {Message}", uri, attempt, ex.Message);
+            }
+        }
     }
 
     private static async Task<JsonDocument> GetJsonAsync(Uri uri, CancellationToken cancellationToken)
