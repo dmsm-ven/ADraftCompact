@@ -2,16 +2,22 @@
 
 Windows overlay for Dota 2 Ability Draft: recognizes the heroes and abilities of all 10 players from a screenshot and shows them over the game.
 
-<table>
+<table width="100%">
   <tr>
-    <th align="center">Overlay</th>
-    <th align="center">Available settings</th>
-    <th align="center">How looks inside game</th>
+    <th width="33.33%" align="center">Overlay</th>
+    <th width="33.33%" align="center">Available settings</th>
+    <th width="33.33%" align="center">How looks inside game</th>
   </tr>
   <tr>
-    <td><img src="screenshot1.png" width="200" /></td>
-    <td><img src="screenshot1.png" width="200" /></td>
-    <td><img src="screenshot1.png" width="200" /></td>
+    <td width="33.33%">
+      <img src="screenshot1.png" width="100%" />
+    </td>
+    <td width="33.33%">
+      <img src="screenshot2.png" width="100%" />
+    </td>
+    <td width="33.33%">
+      <img src="screenshot3.png" width="100%" />
+    </td>
   </tr>
 </table>
 
