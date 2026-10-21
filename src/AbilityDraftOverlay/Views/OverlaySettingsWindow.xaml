@@ -136,9 +136,9 @@
                         Grid.Row="3"
                         Grid.Column="1"
                         IsSnapToTickEnabled="True"
-                        Maximum="180"
-                        Minimum="15"
-                        TickFrequency="5"
+                        Maximum="150"
+                        Minimum="16"
+                        TickFrequency="1"
                         Value="40" />
                     <TextBlock
                         x:Name="IconSizeValue"
