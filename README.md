@@ -9,10 +9,10 @@ Windows overlay for Dota 2 Ability Draft: recognizes the heroes and abilities of
   </tr>
   <tr>
     <td width="50%">
-      <img src="screenshot1.png" width="100%" />
+      <img src="screenshot1.png" width="100%" height="200px" />
     </td>
     <td width="50%">
-      <img src="screenshot2.png" width="100%" />
+      <img src="screenshot2.png" width="100%" height="300px"/>
     </td>
   </tr>
 </table>
