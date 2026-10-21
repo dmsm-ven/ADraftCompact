@@ -1,7 +1,7 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 
-namespace AbilityDraftOverlay.Views;
+namespace ADraftCompact.Views;
 
 public partial class ColorPickerWindow : Window
 {

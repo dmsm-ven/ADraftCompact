@@ -1,11 +1,11 @@
+﻿using ADraftCompact.Models;
+using Microsoft.Extensions.Logging;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
-using AbilityDraftOverlay.Models;
-using Microsoft.Extensions.Logging;
 using Windows.System.UserProfile;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 public sealed record EnvironmentReport(IReadOnlyList<string> Problems)
 {

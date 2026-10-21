@@ -1,9 +1,9 @@
-using System.IO;
+﻿using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using Microsoft.Extensions.Logging;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 /// <summary>
 /// Notification-area (tray) icon with a native "Show / Exit" menu. No balloons or toasts are ever shown.

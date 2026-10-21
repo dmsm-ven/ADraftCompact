@@ -1,14 +1,14 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using AbilityDraftOverlay.Models;
-using AbilityDraftOverlay.Services;
+using ADraftCompact.Models;
+using ADraftCompact.Services;
 
-namespace AbilityDraftOverlay.Views;
+namespace ADraftCompact.Views;
 
 public partial class OverlaySettingsWindow : Window
 {

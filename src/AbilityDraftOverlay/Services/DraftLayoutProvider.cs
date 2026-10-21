@@ -1,9 +1,9 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
-using AbilityDraftOverlay.Models;
+using ADraftCompact.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 /// <summary>
 /// Loads the draft screen layout. A file at <see cref="AppPaths.UserLayout"/> wins over the bundled one,

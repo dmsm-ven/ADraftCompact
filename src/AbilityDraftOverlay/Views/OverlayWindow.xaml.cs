@@ -1,5 +1,5 @@
-using AbilityDraftOverlay.Models;
-using AbilityDraftOverlay.Services;
+﻿using ADraftCompact.Models;
+using ADraftCompact.Services;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -9,7 +9,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-namespace AbilityDraftOverlay.Views;
+namespace ADraftCompact.Views;
 
 public partial class OverlayWindow : Window, INotifyPropertyChanged
 {

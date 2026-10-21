@@ -1,8 +1,8 @@
-using System.IO;
-using AbilityDraftOverlay.Models;
+﻿using System.IO;
+using ADraftCompact.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 /// <param name="Status">Short text for the status line.</param>
 /// <param name="Update">Null when no frame was recognized (game window missing, covered, ...).</param>

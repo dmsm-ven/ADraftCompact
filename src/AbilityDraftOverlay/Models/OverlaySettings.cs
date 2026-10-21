@@ -1,4 +1,4 @@
-namespace AbilityDraftOverlay.Models;
+﻿namespace ADraftCompact.Models;
 
 public sealed class OverlaySettings
 {

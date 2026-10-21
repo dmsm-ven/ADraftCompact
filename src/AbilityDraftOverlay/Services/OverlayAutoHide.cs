@@ -1,10 +1,10 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Windows.Threading;
-using AbilityDraftOverlay.Models;
+using ADraftCompact.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 /// <summary>
 /// Hides the overlay when the game process goes away. It reacts only to the running -> not running transition,

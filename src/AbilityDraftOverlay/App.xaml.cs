@@ -1,14 +1,14 @@
-using System.Threading;
+﻿using System.Threading;
 using System.Windows;
-using AbilityDraftOverlay.Services;
-using AbilityDraftOverlay.Logging;
+using ADraftCompact.Services;
+using ADraftCompact.Logging;
 using Microsoft.Extensions.Logging;
-using AbilityDraftOverlay.ViewModels;
-using AbilityDraftOverlay.Views;
+using ADraftCompact.ViewModels;
+using ADraftCompact.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace AbilityDraftOverlay;
+namespace ADraftCompact;
 
 public partial class App : Application
 {

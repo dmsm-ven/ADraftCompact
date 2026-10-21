@@ -1,7 +1,7 @@
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using System.Windows.Media;
-using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace AbilityDraftOverlay.Models;
+namespace ADraftCompact.Models;
 
 /// <summary>Icons currently displayed for one of the ten Ability Draft players.</summary>
 public partial class OverlayPlayerRow : ObservableObject

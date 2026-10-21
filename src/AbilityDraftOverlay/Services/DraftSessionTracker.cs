@@ -1,7 +1,7 @@
-using AbilityDraftOverlay.Models;
+﻿using ADraftCompact.Models;
 using Microsoft.Extensions.Logging;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 /// <summary>
 /// Turns snapshots (one per screenshot) into draft sessions and a per-player pick order.

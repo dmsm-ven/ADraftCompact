@@ -1,9 +1,9 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 
-namespace AbilityDraftOverlay.Views;
+namespace ADraftCompact.Views;
 
 /// <summary>
 /// Clips an element to a rounded rectangle of its own size. A Border with a CornerRadius does not round the

@@ -1,4 +1,4 @@
-namespace AbilityDraftOverlay.Services;
+﻿namespace ADraftCompact.Services;
 
 /// <summary>
 /// Shared state that decides what closing the main window does.

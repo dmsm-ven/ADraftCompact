@@ -1,9 +1,9 @@
-using AbilityDraftOverlay.Models;
-using AbilityDraftOverlay.Services;
+﻿using ADraftCompact.Models;
+using ADraftCompact.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace AbilityDraftOverlay.ViewModels;
+namespace ADraftCompact.ViewModels;
 
 public partial class SettingsViewModel(ISettingsService settingsService) : ObservableObject
 {

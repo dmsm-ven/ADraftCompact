@@ -1,9 +1,9 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Windows.Input;
 using System.Windows.Interop;
 using Microsoft.Extensions.Logging;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 /// <summary>
 /// One system-wide hotkey (works while the game has the focus). Registered with RegisterHotKey on a hidden message-only window,

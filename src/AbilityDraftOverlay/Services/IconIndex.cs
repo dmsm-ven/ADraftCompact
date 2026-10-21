@@ -1,12 +1,12 @@
-using System.IO;
+﻿using System.IO;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
-using AbilityDraftOverlay.Models;
+using ADraftCompact.Models;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 public readonly record struct HeroName(string Id, string Name);
 

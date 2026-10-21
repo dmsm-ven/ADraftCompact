@@ -1,10 +1,10 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
-using AbilityDraftOverlay.Models;
+using ADraftCompact.Models;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 /// <param name="Frame">BGR screenshot of the game window's client area; the caller disposes it. Null if nothing was captured.</param>
 /// <param name="Status">Human-readable reason when <paramref name="Frame"/> is null.</param>

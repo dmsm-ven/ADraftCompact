@@ -1,6 +1,6 @@
-using System.IO;
+﻿using System.IO;
 
-namespace AbilityDraftOverlay.Models;
+namespace ADraftCompact.Models;
 
 /// <summary>Rectangle relative to the origin of a player's cell (reference resolution pixels).</summary>
 public sealed class SlotRect

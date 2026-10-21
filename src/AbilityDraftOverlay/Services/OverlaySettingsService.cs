@@ -1,8 +1,8 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
-using AbilityDraftOverlay.Models;
+using ADraftCompact.Models;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 public sealed class OverlaySettingsService
 {

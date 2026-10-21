@@ -1,13 +1,13 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
-using AbilityDraftOverlay.Models;
+using ADraftCompact.Models;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 using CvPoint = OpenCvSharp.Point;
 using CvRect = OpenCvSharp.Rect;
 using CvScalar = OpenCvSharp.Scalar;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 /// <summary>
 /// Recognizes the Ability Draft screen without any OCR/ML:

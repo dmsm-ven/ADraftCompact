@@ -1,6 +1,6 @@
-using AbilityDraftOverlay.Models;
+﻿using ADraftCompact.Models;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 public interface ISettingsService
 {

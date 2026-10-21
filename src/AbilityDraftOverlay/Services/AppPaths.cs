@@ -1,6 +1,6 @@
-using System.IO;
+﻿using System.IO;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 /// <summary>
 /// Where the application keeps its files.

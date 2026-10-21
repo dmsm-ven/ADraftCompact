@@ -1,4 +1,4 @@
-<Window x:Class="AbilityDraftOverlay.Views.SettingsWindow"
+﻿<Window x:Class="ADraftCompact.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Settings" Width="520" Height="360"

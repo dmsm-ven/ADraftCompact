@@ -1,4 +1,4 @@
-using AbilityDraftOverlay.Models;
+﻿using ADraftCompact.Models;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 using System.Runtime.InteropServices;
@@ -7,7 +7,7 @@ using Windows.Graphics.Imaging;
 using Windows.Media.Ocr;
 using Windows.Storage.Streams;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 /// <summary>
 /// Reads the hero name line of a player card with the OCR engine built into Windows 10/11

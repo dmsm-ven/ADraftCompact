@@ -1,8 +1,8 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 /// <summary>
 /// Reads the language Steam has set for Dota 2 (the "language" value in appmanifest_570.acf).

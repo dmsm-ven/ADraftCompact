@@ -1,10 +1,10 @@
-using System.IO;
+﻿using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 public sealed record AssetDownloadResult(int Downloaded, int Skipped, int Failed);
 public sealed record AssetStorageInfo(int FileCount, long TotalBytes, string DirectoryPath);

@@ -1,4 +1,4 @@
-namespace AbilityDraftOverlay.Models;
+﻿namespace ADraftCompact.Models;
 
 /// <summary>One thing a player has taken: the hero or an ability.</summary>
 public sealed class PickedItem

@@ -1,6 +1,6 @@
-using AbilityDraftOverlay.Models;
+﻿using ADraftCompact.Models;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 public sealed record HeroNameMatch(HeroName? Hero, double Score, double Margin, HeroName? RunnerUp, bool IsNoHero);
 

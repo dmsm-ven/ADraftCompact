@@ -1,4 +1,4 @@
-namespace AbilityDraftOverlay.Services;
+﻿namespace ADraftCompact.Services;
 
 /// <summary>Command-line switches.</summary>
 public static class AppOptions

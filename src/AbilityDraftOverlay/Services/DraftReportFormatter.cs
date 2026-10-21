@@ -1,7 +1,7 @@
-using AbilityDraftOverlay.Models;
+﻿using ADraftCompact.Models;
 using System.Text;
 
-namespace AbilityDraftOverlay.Services;
+namespace ADraftCompact.Services;
 
 /// <summary>Plain-text view of a snapshot: one line per player.</summary>
 public static class DraftReportFormatter

@@ -1,6 +1,6 @@
-using AbilityDraftOverlay.Models;
-using AbilityDraftOverlay.Views;
-using AbilityDraftOverlay.Services;
+﻿using ADraftCompact.Models;
+using ADraftCompact.Views;
+using ADraftCompact.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -8,7 +8,7 @@ using System.Collections.ObjectModel;
 using System.Net.Http;
 using System.Windows;
 
-namespace AbilityDraftOverlay.ViewModels;
+namespace ADraftCompact.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {

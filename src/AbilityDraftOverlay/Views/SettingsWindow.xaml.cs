@@ -1,7 +1,7 @@
-using System.Windows;
-using AbilityDraftOverlay.ViewModels;
+﻿using System.Windows;
+using ADraftCompact.ViewModels;
 
-namespace AbilityDraftOverlay.Views;
+namespace ADraftCompact.Views;
 
 public partial class SettingsWindow : Window
 {

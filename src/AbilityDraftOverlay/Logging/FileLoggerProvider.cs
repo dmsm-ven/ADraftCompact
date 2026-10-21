@@ -1,8 +1,8 @@
-using System.IO;
+﻿using System.IO;
 using Microsoft.Extensions.Logging;
-using AbilityDraftOverlay.Services;
+using ADraftCompact.Services;
 
-namespace AbilityDraftOverlay.Logging;
+namespace ADraftCompact.Logging;
 
 /// <summary>
 /// Writes application logs to one file (<see cref="AppPaths.LogFile"/>, next to the executable), appended across runs.

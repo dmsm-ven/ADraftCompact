@@ -1,9 +1,9 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows;
-using AbilityDraftOverlay.Services;
-using AbilityDraftOverlay.ViewModels;
+using ADraftCompact.Services;
+using ADraftCompact.ViewModels;
 
-namespace AbilityDraftOverlay.Views;
+namespace ADraftCompact.Views;
 
 public partial class MainWindow : Window
 {
