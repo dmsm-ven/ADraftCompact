@@ -67,6 +67,7 @@ public partial class MainViewModel : ObservableObject
         _overlayWindow = overlayWindow;
         _overlaySettingsService = overlaySettingsService;
         _ = LoadOverlaySettingsAsync();
+        if (_tracker.Current is null && LastBoardStore.Load() is { } lastBoard) _tracker.Restore(lastBoard);
         _overlayWindow.UpdateSession(_tracker.Current);
         _overlayWindow.Closed += (_, _) => IsOverlayVisible = false;
         UpdateResourceSummary();
@@ -269,6 +270,7 @@ public partial class MainViewModel : ObservableObject
             ? $"Session {session.Id} · since {session.StartedAt:MM-dd HH:mm:ss} · captures {session.Captures} · picks {session.TotalPicks}"
             : "Session: none";
         _overlayWindow.UpdateSession(update.Session);
+        if (update.Session is { } current) LastBoardStore.Save(current);
     }
 
     private static void ShowNetworkWarning() => MessageBox.Show(

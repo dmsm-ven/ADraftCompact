@@ -15,6 +15,8 @@ public static class AppPaths
 
     public static string AppSettingsFile => Path.Combine(Root, "settings.json");
     public static string OverlaySettingsFile => Path.Combine(Root, "overlay-settings.json");
+    /// <summary>The last recognized board, restored on the next start.</summary>
+    public static string LastBoardFile => Path.Combine(Root, "last-board.json");
     public static string IconIndexFile => Path.Combine(Root, "icons.index");
 
     /// <summary>The single log file.</summary>

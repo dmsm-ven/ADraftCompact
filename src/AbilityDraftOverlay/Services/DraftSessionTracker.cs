@@ -1,4 +1,4 @@
-﻿using ADraftCompact.Models;
+using ADraftCompact.Models;
 using Microsoft.Extensions.Logging;
 
 namespace ADraftCompact.Services;
@@ -41,6 +41,13 @@ public sealed class DraftSessionTracker
     public int CandidateConfirmations { get; set; } = 1;
 
     public DraftSession? Current { get { lock (_gate) return _session; } }
+
+    /// <summary>Puts a board saved by a previous run back as the active session (only if there is none).</summary>
+    public void Restore(DraftSession session)
+    {
+        lock (_gate)
+            _session ??= session;
+    }
 
     /// <summary>Closes the active session (new game started or the user cleared the log).</summary>
     public SessionUpdate EndSession(DateTimeOffset now, string reason)
