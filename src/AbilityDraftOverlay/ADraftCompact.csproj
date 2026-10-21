@@ -11,10 +11,12 @@
     <Version>0.1.0</Version>
     <!-- Single-file release: dotnet publish -c Release -r win-x64 (see README / publish.ps1) -->
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
-    <SelfContained>true</SelfContained>
+    <!-- Needs the .NET 10 Desktop Runtime on the user's PC; keeps the exe small. -->
+    <SelfContained>false</SelfContained>
+    <!-- Precompiled code: faster start-up. -->
+    <PublishReadyToRun>true</PublishReadyToRun>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <DebugType>none</DebugType>
   </PropertyGroup>
   <ItemGroup>
