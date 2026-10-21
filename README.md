@@ -23,6 +23,8 @@ Windows overlay for Dota 2 Ability Draft: recognizes the heroes and abilities of
 2. At the end of the draft press **Recognize** (or `Ctrl+Shift+O`).
 3. Move the overlay and adjust the spacing if needed.
 
+> **Note:** put the exe into its own folder (e.g. `C:\Games\AbilityDraftOverlay`), not the Desktop. `Assets`, settings and `app.log` are created next to it.
+
 ## Requirements
 
 - Windows 10 (build 19041) or newer, 64-bit.
