@@ -27,6 +27,15 @@ Windows overlay for Dota 2 Ability Draft: recognizes the heroes and abilities of
 2. At the end of the draft press **Recognize** (or `Ctrl+Shift+O`).
 3. Move the overlay and adjust the spacing if needed.
 
+## Requirements
+
+- Windows 10 (build 19041) or newer, 64-bit.
+- [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64).
+- 1920x1080 screen resolution.
+- Dota 2 in **Borderless Window** or **Windowed** mode, game language English.
+- Windows OCR language **English (United States)** installed.
+- Internet access to download the icon resources and updates.
+
 ## External resources
 
 - [OpenDota constants](https://github.com/odota/dotaconstants)
