@@ -1,4 +1,4 @@
-﻿using ADraftCompact.Models;
+using ADraftCompact.Models;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 using System.Runtime.InteropServices;
@@ -49,12 +49,48 @@ public sealed class HeroNameReader
             lines = Recognize(engine, whole);
         }
 
+        // 3) Still nothing (e.g. fiery red art behind "LINA" looks as saturated as the text): the text is white,
+        //    so keep only pixels that are bright in every channel.
+        if (lines.Count == 0)
+        {
+            using var white = BinarizeWhite(crop);
+            using (var cleaned = BuildCleaned(white, band.Height))
+                if (cleaned is not null) lines = Recognize(engine, cleaned);
+            if (lines.Count == 0)
+            {
+                using var whole = BuildWhole(white);
+                lines = Recognize(engine, whole);
+            }
+        }
+
         if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
             _logger.LogDebug("Hero name OCR @({X},{Y}): {Lines}", band.X, band.Y, string.Join(" | ", lines));
         return lines;
     }
 
     private const int Scale = 4;
+
+    /// <summary>BGR crop -> upscaled binary mask of near-white pixels (min channel is high).</summary>
+    private static Mat BinarizeWhite(Mat bgr)
+    {
+        var channels = Cv2.Split(bgr);
+        try
+        {
+            using var min = new Mat();
+            Cv2.Min(channels[0], channels[1], min);
+            Cv2.Min(min, channels[2], min);
+            using var big = new Mat();
+            Cv2.Resize(min, big, new OpenCvSharp.Size(min.Width * Scale, min.Height * Scale), 0, 0, InterpolationFlags.Cubic);
+            Cv2.GaussianBlur(big, big, new OpenCvSharp.Size(3, 3), 0);
+            var binary = new Mat();
+            Cv2.Threshold(big, binary, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+            return binary;
+        }
+        finally
+        {
+            foreach (var channel in channels) channel.Dispose();
+        }
+    }
 
     /// <summary>BGR crop -> upscaled binary mask where the (saturated, bright) text is white.</summary>
     private static Mat Binarize(Mat bgr)
