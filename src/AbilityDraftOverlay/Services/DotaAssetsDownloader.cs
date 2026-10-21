@@ -171,8 +171,7 @@ public sealed class DotaAssetsDownloader
         if (heroAbilities.ValueKind == JsonValueKind.Object)
             foreach (var hero in heroAbilities.EnumerateObject())
                 if (hero.Value.ValueKind == JsonValueKind.Object && hero.Value.TryGetProperty("abilities", out var list) && list.ValueKind == JsonValueKind.Array)
-                    foreach (var item in list.EnumerateArray())
-                        if (item.GetString() is { } key) keys.Add(key);
+                    CollectStrings(list, keys);
 
         if (keys.Count == 0 && allAbilities.ValueKind == JsonValueKind.Object)
             foreach (var ability in allAbilities.EnumerateObject()) keys.Add(ability.Name);
@@ -180,6 +179,20 @@ public sealed class DotaAssetsDownloader
         return keys.Where(key => !string.IsNullOrWhiteSpace(key) && !key.Contains('/') && !key.Contains('\\')
                                  && !IconIndex.ExcludedAbilityPrefixes.Any(p => key.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
             .ToList();
+    }
+
+    /// <summary>The list may contain strings, nested arrays or other values depending on the OpenDota data version: take every string, ignore the rest.</summary>
+    private static void CollectStrings(JsonElement element, ISet<string> into)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.String:
+                if (element.GetString() is { Length: > 0 } text) into.Add(text);
+                break;
+            case JsonValueKind.Array:
+                foreach (var item in element.EnumerateArray()) CollectStrings(item, into);
+                break;
+        }
     }
 
     private static HttpClient CreateHttpClient()
