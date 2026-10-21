@@ -29,6 +29,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty, NotifyPropertyChangedFor(nameof(OverlayButtonText), nameof(OverlayButtonIcon))] private bool isOverlayVisible;
     [ObservableProperty] private string statusText = "Ready.";
     [ObservableProperty] private bool isBusy;
+    /// <summary>False until the hero and ability icons are downloaded: recognition is impossible without them.</summary>
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(RecognizeAbilitiesCommand))] private bool hasIcons;
     [ObservableProperty] private string resourceSummary = "Assets: checking...";
     /// <summary>Progress and result of the asset download, shown next to the download button in the overlay settings.</summary>
     [ObservableProperty] private string assetsStatusText = string.Empty;
@@ -137,7 +139,7 @@ public partial class MainViewModel : ObservableObject
     /// Screenshot of the game, recognition of every hero and ability on the draft board, then the overlay is updated and shown.
     /// Meant to be used once all players have picked everything. Also bound to the hotkey.
     /// </summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasIcons))]
     private async Task RecognizeAbilitiesAsync()
     {
         if (IsBusy) return;
@@ -217,6 +219,7 @@ public partial class MainViewModel : ObservableObject
                 AssetsStatusText = "Asset sources are unavailable. Check your network connection.";
                 AddEvent(DraftEventKind.Error, "resource-check", AssetsStatusText);
                 _logger.LogWarning("Download cancelled: OpenDota is unavailable");
+                ShowNetworkWarning();
                 return;
             }
 
@@ -238,6 +241,7 @@ public partial class MainViewModel : ObservableObject
             AssetsStatusText = $"Asset download failed: {ex.Message}";
             AddEvent(DraftEventKind.Error, "download", AssetsStatusText);
             _logger.LogError(ex, "Asset download failed");
+            if (ex is HttpRequestException or TaskCanceledException) ShowNetworkWarning();
         }
         finally { IsBusy = false; }
     }
@@ -266,11 +270,18 @@ public partial class MainViewModel : ObservableObject
         _overlayWindow.UpdateSession(update.Session);
     }
 
+    private static void ShowNetworkWarning() => MessageBox.Show(
+        "The resources could not be downloaded: OpenDota or the Steam CDN is not reachable from your network.\n\n" +
+        "Please connect to another network or use a VPN, then press Download assets again.",
+        "Ability Draft Overlay", MessageBoxButton.OK, MessageBoxImage.Warning);
+
     public void UpdateResourceSummary(bool keepAssetsStatus = false)
     {
         try
         {
             var info = DotaAssetsDownloader.GetStorageInfo();
+            HasIcons = DotaAssetsDownloader.HasIcons();
+            if (!HasIcons && IsEnvironmentOk && !keepAssetsStatus) StatusText = "Icons are missing: open the overlay settings and press Download assets.";
             ResourceSummary = $"Assets: {info.FileCount:N0} files · {FormatBytes(info.TotalBytes)}";
             if (!keepAssetsStatus) AssetsStatusText = ResourceSummary;
             _logger.LogInformation("Local assets: {Count} files, {Bytes} bytes", info.FileCount, info.TotalBytes);

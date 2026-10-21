@@ -38,6 +38,13 @@ public sealed class DotaAssetsDownloader
         return new AssetStorageInfo(files.Length, files.Sum(file => file.Length), root);
     }
 
+    /// <summary>True when at least one hero portrait and one modern ability icon are on disk.</summary>
+    public static bool HasIcons() =>
+        HasPng(Path.Combine(AssetsRoot, "heroes", "portraits")) && HasPng(Path.Combine(AssetsRoot, "abilities", "modern"));
+
+    private static bool HasPng(string directory) =>
+        Directory.Exists(directory) && Directory.EnumerateFiles(directory, "*.png").Any();
+
     public async Task<bool> CheckAvailabilityAsync(CancellationToken cancellationToken = default)
     {
         // Test the exact API needed by the downloader, not a generic internet endpoint.
