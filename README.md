@@ -31,7 +31,7 @@ Windows overlay for Dota 2 Ability Draft: recognizes the heroes and abilities of
 - [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64).
 - 1920x1080 screen resolution.
 - Dota 2 in **Borderless Window** or **Windowed** mode, game language English.
-- Windows OCR language **English (United States)** installed.
+- Windows text recognition for **English (United States)** (used to read hero names). It is usually already there if English is among your Windows languages. Otherwise add it once: *Settings → Time & language → Language & region → Add a language → English (United States)*, and keep the *Optical character recognition* option ticked. No restart of the app is needed except to re-run the startup check.
 
 ## External resources
 
