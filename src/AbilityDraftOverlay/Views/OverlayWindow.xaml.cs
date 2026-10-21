@@ -11,6 +11,7 @@ using System.Windows.Media.Imaging;
 
 namespace ADraftCompact.Views;
 
+//TODO: move to ViewModel
 public partial class OverlayWindow : Window, INotifyPropertyChanged
 {
     private const int GwlExStyle = -20;
