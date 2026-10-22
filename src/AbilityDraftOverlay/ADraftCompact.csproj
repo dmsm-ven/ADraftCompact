@@ -8,7 +8,7 @@
     <AssemblyName>AbilityDraftOverlay</AssemblyName>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <!-- Release version: shown in the window title and compared with the latest GitHub release. Tag releases as v0.1.0. -->
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <!-- Single-file release: dotnet publish -c Release -r win-x64 (see README / publish.ps1) -->
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
     <!-- Needs the .NET 10 Desktop Runtime on the user's PC; keeps the exe small. -->
