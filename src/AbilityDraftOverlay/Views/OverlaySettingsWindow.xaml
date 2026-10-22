@@ -144,6 +144,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="Background color" />
                     <Button
@@ -172,10 +173,26 @@
                         Grid.Column="2"
                         Text="0%"
                         TextAlignment="Right" />
-                    <TextBlock Grid.Row="3" Text="Icon size" />
+                    <TextBlock Grid.Row="3" Text="Overall opacity" ToolTip="Icons, borders and team names" />
+                    <Slider
+                        x:Name="ContentOpacitySlider"
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        IsSnapToTickEnabled="True"
+                        Maximum="100"
+                        Minimum="10"
+                        TickFrequency="1"
+                        Value="100" />
+                    <TextBlock
+                        x:Name="ContentOpacityValue"
+                        Grid.Row="3"
+                        Grid.Column="2"
+                        Text="100%"
+                        TextAlignment="Right" />
+                    <TextBlock Grid.Row="4" Text="Icon size" />
                     <Slider
                         x:Name="IconSizeSlider"
-                        Grid.Row="3"
+                        Grid.Row="4"
                         Grid.Column="1"
                         IsSnapToTickEnabled="True"
                         Maximum="150"
@@ -184,7 +201,7 @@
                         Value="40" />
                     <TextBlock
                         x:Name="IconSizeValue"
-                        Grid.Row="3"
+                        Grid.Row="4"
                         Grid.Column="2"
                         Text="40 px"
                         TextAlignment="Right" />
@@ -199,10 +216,10 @@
                         HorizontalAlignment="Right"
                         Click="BorderColorButton_Click"
                         Content="Choose color" />
-                    <TextBlock Grid.Row="4" Text="Border thickness" />
+                    <TextBlock Grid.Row="5" Text="Border thickness" />
                     <Slider
                         x:Name="BorderSizeSlider"
-                        Grid.Row="4"
+                        Grid.Row="5"
                         Grid.Column="1"
                         IsSnapToTickEnabled="True"
                         Maximum="8"
@@ -211,14 +228,14 @@
                         Value="1" />
                     <TextBlock
                         x:Name="BorderSizeValue"
-                        Grid.Row="4"
+                        Grid.Row="5"
                         Grid.Column="2"
                         Text="1 px"
                         TextAlignment="Right" />
-                    <TextBlock Grid.Row="6" Text="Hero spacing" />
+                    <TextBlock Grid.Row="7" Text="Hero spacing" />
                     <Slider
                         x:Name="HeroGapSlider"
-                        Grid.Row="6"
+                        Grid.Row="7"
                         Grid.Column="1"
                         IsSnapToTickEnabled="True"
                         Maximum="40"
@@ -226,14 +243,14 @@
                         Value="4" />
                     <TextBlock
                         x:Name="HeroGapValue"
-                        Grid.Row="6"
+                        Grid.Row="7"
                         Grid.Column="2"
                         Text="4 px"
                         TextAlignment="Right" />
-                    <TextBlock Grid.Row="7" Text="Ability spacing" />
+                    <TextBlock Grid.Row="8" Text="Ability spacing" />
                     <Slider
                         x:Name="AbilityGapSlider"
-                        Grid.Row="7"
+                        Grid.Row="8"
                         Grid.Column="1"
                         IsSnapToTickEnabled="True"
                         Maximum="40"
@@ -241,14 +258,14 @@
                         Value="4" />
                     <TextBlock
                         x:Name="AbilityGapValue"
-                        Grid.Row="7"
+                        Grid.Row="8"
                         Grid.Column="2"
                         Text="4 px"
                         TextAlignment="Right" />
-                    <TextBlock Grid.Row="5" Text="Player row spacing" />
+                    <TextBlock Grid.Row="6" Text="Player row spacing" />
                     <Slider
                         x:Name="RowGapSlider"
-                        Grid.Row="5"
+                        Grid.Row="6"
                         Grid.Column="1"
                         IsSnapToTickEnabled="True"
                         Maximum="80"
@@ -256,14 +273,14 @@
                         Value="4" />
                     <TextBlock
                         x:Name="RowGapValue"
-                        Grid.Row="5"
+                        Grid.Row="6"
                         Grid.Column="2"
                         Text="4 px"
                         TextAlignment="Right" />
-                    <TextBlock Grid.Row="8" Text="Team spacing" />
+                    <TextBlock Grid.Row="9" Text="Team spacing" />
                     <Slider
                         x:Name="TeamGapSlider"
-                        Grid.Row="8"
+                        Grid.Row="9"
                         Grid.Column="1"
                         IsSnapToTickEnabled="True"
                         Maximum="400"
@@ -271,20 +288,20 @@
                         Value="30" />
                     <TextBlock
                         x:Name="TeamGapValue"
-                        Grid.Row="8"
+                        Grid.Row="9"
                         Grid.Column="2"
                         Text="30 px"
                         TextAlignment="Right" />
                     <CheckBox
                         x:Name="ShowNamesCheckBox"
-                        Grid.Row="9"
+                        Grid.Row="10"
                         Grid.ColumnSpan="3"
                         Margin="0,7,0,4"
                         Content="Show Radiant / Dire labels"
                         Foreground="White" />
                     <CheckBox
                         x:Name="RoundBordersCheckBox"
-                        Grid.Row="10"
+                        Grid.Row="11"
                         Grid.ColumnSpan="3"
                         Margin="0,3,0,4"
                         Content="Round icon borders"

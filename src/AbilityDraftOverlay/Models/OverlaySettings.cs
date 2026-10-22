@@ -7,6 +7,8 @@ public sealed class OverlaySettings
     public int IconSize { get; set; } = 40;
     public string OverlayColorHex { get; set; } = "#FF171A21";
     public int OverlayOpacityPercent { get; set; } = 0;
+    /// <summary>Opacity of everything drawn on the overlay (icons, their borders, team names), 10..100.</summary>
+    public int ContentOpacityPercent { get; set; } = 100;
     public string IconBorderColorHex { get; set; } = "#FF343A43";
     public int IconBorderThickness { get; set; } = 1;
     public int PlayerRowGap { get; set; } = 4;

@@ -33,6 +33,7 @@ public partial class OverlaySettingsWindow : Window
             _overlay.ApplySettings(_settings);
 
             OpacitySlider.Value = _settings.OverlayOpacityPercent;
+            ContentOpacitySlider.Value = _settings.ContentOpacityPercent;
             IconSizeSlider.Value = _settings.IconSize;
             BorderSizeSlider.Value = _settings.IconBorderThickness;
             RowGapSlider.Value = _settings.PlayerRowGap;
@@ -48,7 +49,7 @@ public partial class OverlaySettingsWindow : Window
             _initializing = false;
         };
 
-        foreach (var slider in new[] { OpacitySlider, IconSizeSlider, BorderSizeSlider, RowGapSlider, HeroGapSlider, AbilityGapSlider, TeamGapSlider })
+        foreach (var slider in new[] { OpacitySlider, ContentOpacitySlider, IconSizeSlider, BorderSizeSlider, RowGapSlider, HeroGapSlider, AbilityGapSlider, TeamGapSlider })
             slider.ValueChanged += (_, _) => ApplyControlsLive();
         ShowNamesCheckBox.Checked += (_, _) => ApplyControlsLive();
         ShowNamesCheckBox.Unchecked += (_, _) => ApplyControlsLive();
@@ -108,6 +109,7 @@ public partial class OverlaySettingsWindow : Window
     private void UpdateLabels()
     {
         OpacityValue.Text = $"{(int)OpacitySlider.Value}%";
+        ContentOpacityValue.Text = $"{(int)ContentOpacitySlider.Value}%";
         IconSizeValue.Text = $"{NormalizeIconSize((int)IconSizeSlider.Value)} px";
         BorderSizeValue.Text = $"{(int)BorderSizeSlider.Value} px";
         RowGapValue.Text = $"{(int)RowGapSlider.Value} px";
@@ -120,6 +122,7 @@ public partial class OverlaySettingsWindow : Window
     {
         if (_initializing) return;
         _settings.OverlayOpacityPercent = (int)OpacitySlider.Value;
+        _settings.ContentOpacityPercent = (int)ContentOpacitySlider.Value;
         _settings.IconSize = NormalizeIconSize((int)IconSizeSlider.Value);
         _settings.IconBorderThickness = (int)BorderSizeSlider.Value;
         _settings.PlayerRowGap = (int)RowGapSlider.Value;

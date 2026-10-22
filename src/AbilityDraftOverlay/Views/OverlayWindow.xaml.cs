@@ -46,6 +46,7 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
     /// <summary>Hero portraits are 16:9 (256x144): the configured icon size is their height, the width follows.</summary>
     public double HeroWidth => HeroWidthFor(Settings.IconSize);
     private static double HeroWidthFor(int iconSize) => Math.Round(iconSize * 16.0 / 9.0);
+    public double ContentOpacity => Math.Clamp(Settings.ContentOpacityPercent, 10, 100) / 100.0;
     public double PlayerRowGap => Settings.PlayerRowGap;
     public double HeroGap => Settings.HeroGap;
     public double AbilityGap => Settings.AbilityGap;
@@ -153,6 +154,41 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
 
     private Window? _moveHandle;
 
+    /// <summary>
+    /// Reminder that the board was captured incompletely: a glowing, colour-shifting dash makes one lap around the window edge in 3 seconds.
+    /// Works on the window border only (nothing is drawn over the icons).
+    /// </summary>
+    public void PlayAttentionGlow()
+    {
+        if (!IsVisible || _positionEditMode) return;
+
+        const double thickness = 4, dash = 14; // dash length in units of the thickness: ~56 px
+        GlowEdge.StrokeThickness = thickness;
+        var width = Math.Max(1, GlowEdge.ActualWidth - thickness);
+        var height = Math.Max(1, GlowEdge.ActualHeight - thickness);
+        var perimeter = 2 * (width + height) / thickness;
+        GlowEdge.StrokeDashArray = new DoubleCollection { dash, Math.Max(1, perimeter - dash) };
+
+        var brush = new SolidColorBrush(Colors.Cyan);
+        GlowEdge.Stroke = brush;
+        GlowShadow.Color = Colors.Cyan;
+
+        var duration = new Duration(TimeSpan.FromSeconds(3));
+        var colors = new System.Windows.Media.Animation.ColorAnimationUsingKeyFrames { Duration = duration };
+        foreach (var (time, color) in new[] { (0.0, Colors.Cyan), (0.75, Colors.Magenta), (1.5, Colors.Gold), (2.25, Colors.LimeGreen), (3.0, Colors.Cyan) })
+            colors.KeyFrames.Add(new System.Windows.Media.Animation.LinearColorKeyFrame(color, TimeSpan.FromSeconds(time)));
+        brush.BeginAnimation(SolidColorBrush.ColorProperty, colors);
+        GlowShadow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.ColorProperty, colors);
+
+        var lap = new System.Windows.Media.Animation.DoubleAnimation(0, -perimeter, duration)
+        {
+            FillBehavior = System.Windows.Media.Animation.FillBehavior.Stop
+        };
+        lap.Completed += (_, _) => GlowEdge.Visibility = Visibility.Collapsed;
+        GlowEdge.Visibility = Visibility.Visible;
+        GlowEdge.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, lap);
+    }
+
     private void CloseMoveHandle()
     {
         var handle = _moveHandle;
@@ -232,7 +268,7 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(OverlayBackground)); OnPropertyChanged(nameof(IconBorderBrush));
         OnPropertyChanged(nameof(IconBorderThickness)); OnPropertyChanged(nameof(IconCornerRadius)); OnPropertyChanged(nameof(OverlayBorderBrush));
         OnPropertyChanged(nameof(OverlayBorderThickness));
-        OnPropertyChanged(nameof(TeamsOrientation)); OnPropertyChanged(nameof(TeamGapWidth)); OnPropertyChanged(nameof(TeamGapHeight));
+        OnPropertyChanged(nameof(ContentOpacity)); OnPropertyChanged(nameof(TeamsOrientation)); OnPropertyChanged(nameof(TeamGapWidth)); OnPropertyChanged(nameof(TeamGapHeight));
     }
 
     private static Color ParseColor(string? value) => ColorConverter.ConvertFromString(string.IsNullOrWhiteSpace(value) ? "#FF343A43" : value) is Color color ? color : Colors.DimGray;

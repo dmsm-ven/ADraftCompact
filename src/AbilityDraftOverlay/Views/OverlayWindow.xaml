@@ -21,9 +21,10 @@
             </Setter>
         </Style>
     </Window.Resources>
+    <Grid>
     <Border x:Name="OverlayFrame" Padding="3" Background="{Binding OverlayBackground}"
             BorderBrush="{Binding OverlayBorderBrush}" BorderThickness="{Binding OverlayBorderThickness}" CornerRadius="3">
-        <StackPanel Orientation="{Binding TeamsOrientation}">
+        <StackPanel Orientation="{Binding TeamsOrientation}" Opacity="{Binding ContentOpacity}">
           <StackPanel>
             <TextBlock Margin="1,0,1,3" Foreground="#FFE8EDF5" FontSize="10" FontWeight="Bold"
                        Text="Radiant" Visibility="{Binding TeamNamesVisibility}" />
@@ -63,4 +64,12 @@
           </StackPanel>
         </StackPanel>
     </Border>
+        <!-- Attention glow: a short bright dash running once around the window edge (see PlayAttentionGlow). -->
+        <Rectangle x:Name="GlowEdge" Margin="1" Visibility="Collapsed" IsHitTestVisible="False"
+                   Stroke="Cyan" StrokeThickness="4" StrokeDashCap="Round" Fill="Transparent">
+            <Rectangle.Effect>
+                <DropShadowEffect x:Name="GlowShadow" Color="Cyan" BlurRadius="10" ShadowDepth="0" Opacity="1" />
+            </Rectangle.Effect>
+        </Rectangle>
+    </Grid>
 </Window>

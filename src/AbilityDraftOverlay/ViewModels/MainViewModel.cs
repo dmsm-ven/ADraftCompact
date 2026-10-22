@@ -271,7 +271,39 @@ public partial class MainViewModel : ObservableObject
             : "Session: none";
         _overlayWindow.UpdateSession(update.Session);
         if (update.Session is { } current) LastBoardStore.Save(current);
+        if (snapshot is { BoardDetected: true }) ScheduleAttentionGlow(update.Session);
     }
+
+    private const int GlowDelaySeconds = 30;
+    private System.Windows.Threading.DispatcherTimer? _glowTimer;
+
+    /// <summary>
+    /// One reminder per recognition: if the captured board is still incomplete (the draft was not over yet), the overlay edge glows
+    /// once after 30 seconds, so a forgotten final capture is noticed. A complete board gets no reminder.
+    /// </summary>
+    private void ScheduleAttentionGlow(DraftSession? session)
+    {
+        _glowTimer?.Stop();
+        _glowTimer = null;
+        if (session is null || IsBoardComplete(session)) return;
+
+        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(GlowDelaySeconds) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            if (ReferenceEquals(_glowTimer, timer)) _glowTimer = null;
+            if (IsOverlayVisible) _overlayWindow.PlayAttentionGlow();
+        };
+        _glowTimer = timer;
+        timer.Start();
+    }
+
+    /// <summary>All 10 players with a hero and all four abilities (three abilities and the ultimate).</summary>
+    private static bool IsBoardComplete(DraftSession session) =>
+        session.Players.Count(player =>
+            player.Picks.Any(p => p.Type == SlotType.Hero)
+            && player.AbilitySlots.Count >= 4
+            && player.AbilitySlots.Take(4).All(slot => !string.IsNullOrEmpty(slot))) >= 10;
 
     private static void ShowNetworkWarning() => MessageBox.Show(
         "The resources could not be downloaded: OpenDota or the Steam CDN is not reachable from your network.\n\n" +
