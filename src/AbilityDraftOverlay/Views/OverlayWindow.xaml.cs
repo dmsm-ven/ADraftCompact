@@ -155,38 +155,62 @@ public partial class OverlayWindow : Window, INotifyPropertyChanged
     private Window? _moveHandle;
 
     /// <summary>
-    /// Reminder that the board was captured incompletely: a glowing, colour-shifting dash makes one lap around the window edge in 3 seconds.
-    /// Works on the window border only (nothing is drawn over the icons).
+    /// Reminder that the board was captured incompletely: a glint (coloured halo with a white core) runs once around the
+    /// window edge in 2.5 seconds while its colour shifts. Only the window border is used; nothing is drawn over the icons.
     /// </summary>
     public void PlayAttentionGlow()
     {
         if (!IsVisible || _positionEditMode) return;
 
-        const double thickness = 4, dash = 14; // dash length in units of the thickness: ~56 px
-        GlowEdge.StrokeThickness = thickness;
-        var width = Math.Max(1, GlowEdge.ActualWidth - thickness);
-        var height = Math.Max(1, GlowEdge.ActualHeight - thickness);
-        var perimeter = 2 * (width + height) / thickness;
-        GlowEdge.StrokeDashArray = new DoubleCollection { dash, Math.Max(1, perimeter - dash) };
+        // Sizes come from the window: a collapsed rectangle has no ActualWidth yet.
+        var seconds = 2.5;
+        var duration = new Duration(TimeSpan.FromSeconds(seconds));
+        var haloLength = 90.0; // px along the edge
+        var coreLength = 36.0;
+        var halo = Configure(GlowHalo, GlowHalo.Margin.Left, haloLength, 0);
+        var core = Configure(GlowCore, GlowCore.Margin.Left, coreLength, (haloLength - coreLength) / 2);
 
         var brush = new SolidColorBrush(Colors.Cyan);
-        GlowEdge.Stroke = brush;
+        GlowHalo.Stroke = brush;
         GlowShadow.Color = Colors.Cyan;
-
-        var duration = new Duration(TimeSpan.FromSeconds(3));
         var colors = new System.Windows.Media.Animation.ColorAnimationUsingKeyFrames { Duration = duration };
-        foreach (var (time, color) in new[] { (0.0, Colors.Cyan), (0.75, Colors.Magenta), (1.5, Colors.Gold), (2.25, Colors.LimeGreen), (3.0, Colors.Cyan) })
+        foreach (var (time, color) in new[] { (0.0, Colors.Cyan), (0.6, Colors.Magenta), (1.2, Colors.Gold), (1.8, Colors.LimeGreen), (2.5, Colors.Cyan) })
             colors.KeyFrames.Add(new System.Windows.Media.Animation.LinearColorKeyFrame(color, TimeSpan.FromSeconds(time)));
         brush.BeginAnimation(SolidColorBrush.ColorProperty, colors);
         GlowShadow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.ColorProperty, colors);
 
-        var lap = new System.Windows.Media.Animation.DoubleAnimation(0, -perimeter, duration)
+        // Fade in at the start and out at the end of the lap.
+        var fade = new System.Windows.Media.Animation.DoubleAnimationUsingKeyFrames { Duration = duration, FillBehavior = System.Windows.Media.Animation.FillBehavior.Stop };
+        fade.KeyFrames.Add(new System.Windows.Media.Animation.LinearDoubleKeyFrame(0, TimeSpan.Zero));
+        fade.KeyFrames.Add(new System.Windows.Media.Animation.LinearDoubleKeyFrame(1, TimeSpan.FromSeconds(0.2)));
+        fade.KeyFrames.Add(new System.Windows.Media.Animation.LinearDoubleKeyFrame(1, TimeSpan.FromSeconds(seconds - 0.25)));
+        fade.KeyFrames.Add(new System.Windows.Media.Animation.LinearDoubleKeyFrame(0, TimeSpan.FromSeconds(seconds)));
+
+        foreach (var (shape, setup) in new[] { (GlowHalo, halo), (GlowCore, core) })
         {
-            FillBehavior = System.Windows.Media.Animation.FillBehavior.Stop
+            var lap = new System.Windows.Media.Animation.DoubleAnimation(setup.Offset, setup.Offset - setup.Perimeter, duration)
+            {
+                FillBehavior = System.Windows.Media.Animation.FillBehavior.Stop
+            };
+            shape.Visibility = Visibility.Visible;
+            shape.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, lap);
+            shape.BeginAnimation(OpacityProperty, fade);
+        }
+        fade.Completed += (_, _) =>
+        {
+            GlowHalo.Visibility = Visibility.Collapsed;
+            GlowCore.Visibility = Visibility.Collapsed;
         };
-        lap.Completed += (_, _) => GlowEdge.Visibility = Visibility.Collapsed;
-        GlowEdge.Visibility = Visibility.Visible;
-        GlowEdge.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, lap);
+
+        // Dash pattern of one rectangle: lengths in units of its stroke thickness; returns the perimeter and the start offset.
+        (double Perimeter, double Offset) Configure(System.Windows.Shapes.Shape shape, double margin, double lengthPx, double shiftPx)
+        {
+            var t = shape.StrokeThickness;
+            var perimeter = 2 * ((ActualWidth - 2 * margin - t) + (ActualHeight - 2 * margin - t)) / t;
+            var dash = lengthPx / t;
+            shape.StrokeDashArray = new DoubleCollection { dash, Math.Max(1, perimeter - dash) };
+            return (perimeter, -shiftPx / t);
+        }
     }
 
     private void CloseMoveHandle()

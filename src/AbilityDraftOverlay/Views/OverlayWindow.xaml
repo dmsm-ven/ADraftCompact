@@ -64,12 +64,14 @@
           </StackPanel>
         </StackPanel>
     </Border>
-        <!-- Attention glow: a short bright dash running once around the window edge (see PlayAttentionGlow). -->
-        <Rectangle x:Name="GlowEdge" Margin="1" Visibility="Collapsed" IsHitTestVisible="False"
-                   Stroke="Cyan" StrokeThickness="4" StrokeDashCap="Round" Fill="Transparent">
+        <!-- Attention glow (see PlayAttentionGlow): a soft coloured halo with a bright core runs once around the window edge. -->
+        <Rectangle x:Name="GlowHalo" Margin="1" Visibility="Collapsed" IsHitTestVisible="False" Opacity="0"
+                   Stroke="Cyan" StrokeThickness="6" StrokeDashCap="Round" Fill="Transparent">
             <Rectangle.Effect>
-                <DropShadowEffect x:Name="GlowShadow" Color="Cyan" BlurRadius="10" ShadowDepth="0" Opacity="1" />
+                <DropShadowEffect x:Name="GlowShadow" Color="Cyan" BlurRadius="14" ShadowDepth="0" Opacity="1" />
             </Rectangle.Effect>
         </Rectangle>
+        <Rectangle x:Name="GlowCore" Margin="2.5" Visibility="Collapsed" IsHitTestVisible="False" Opacity="0"
+                   Stroke="White" StrokeThickness="3" StrokeDashCap="Round" Fill="Transparent" />
     </Grid>
 </Window>
