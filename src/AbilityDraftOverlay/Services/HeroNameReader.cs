@@ -49,7 +49,17 @@ public sealed class HeroNameReader
         using (var cleaned = BuildCleaned(white, band.Height))
             if (cleaned is not null) lines.AddRange(Recognize(engine, cleaned));
 
-        // 3) Fallback: the whole band as is.
+        // 3) Team-coloured text: Radiant names are green and Dire names are red, on animated art that can be red or green itself.
+        //    A mask of "this channel clearly dominates" keeps the letters and drops most of a differently coloured background.
+        foreach (var channel in new[] { 1, 2 }) // BGR: 1 = green, 2 = red
+        {
+            using var dominant = BinarizeDominant(crop, channel);
+            if (Cv2.CountNonZero(dominant) < dominant.Total() * 0.01) continue;
+            using var cleaned = BuildCleaned(dominant, band.Height);
+            if (cleaned is not null) lines.AddRange(Recognize(engine, cleaned));
+        }
+
+        // 4) Fallback: the whole band as is.
         if (lines.Count == 0)
         {
             using var whole = BuildWhole(binary);
@@ -68,6 +78,29 @@ public sealed class HeroNameReader
 
     private const int Scale = 4;
     private const int MinOcrWidth = 360;
+
+    /// <summary>BGR crop -> upscaled binary mask of pixels where the given channel (0=B, 1=G, 2=R) clearly exceeds the other two.</summary>
+    private static Mat BinarizeDominant(Mat bgr, int channel)
+    {
+        var channels = Cv2.Split(bgr);
+        try
+        {
+            using var other = new Mat();
+            Cv2.Max(channels[(channel + 1) % 3], channels[(channel + 2) % 3], other);
+            using var diff = new Mat();
+            Cv2.Subtract(channels[channel], other, diff); // saturates at 0
+            using var big = new Mat();
+            Cv2.Resize(diff, big, new OpenCvSharp.Size(diff.Width * Scale, diff.Height * Scale), 0, 0, InterpolationFlags.Cubic);
+            Cv2.GaussianBlur(big, big, new OpenCvSharp.Size(3, 3), 0);
+            var binary = new Mat();
+            Cv2.Threshold(big, binary, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+            return binary;
+        }
+        finally
+        {
+            foreach (var c in channels) c.Dispose();
+        }
+    }
 
     /// <summary>BGR crop -> upscaled binary mask of near-white pixels (min channel is high).</summary>
     private static Mat BinarizeWhite(Mat bgr)

@@ -46,6 +46,13 @@ public static class HeroNameMatcher
         if (a.Length == 0 || b.Length == 0) return 0;
 
         var full = 1.0 - Levenshtein(a, b) / Math.Max(a.Length, b.Length);
+
+        // Short names ("LINA", "LUNA", "LICH"): the animated hero art often hides the first letter or two, so a reading that is
+        // the tail or the head of the name ("INA", "UNA", "ICH", "LIN") is accepted as that name.
+        if (b.Length is >= 4 and <= 5 && a.Length >= Math.Max(3, b.Length - 1) && a.Length < b.Length
+            && (b.EndsWith(a, StringComparison.Ordinal) || b.StartsWith(a, StringComparison.Ordinal)))
+            full = Math.Max(full, 0.82);
+
         if (a.Length <= b.Length) return full;
 
         // The art behind the text can add junk after the name: also compare with a prefix of the same length.
