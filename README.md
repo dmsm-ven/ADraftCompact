@@ -40,8 +40,6 @@ Overlay for Dota 2 Ability Draft mode: recognizes picked heroes/abilities and sh
 
 ## OBS Browser Source overlay
 
-The application can publish the current Ability Draft board to OBS without capturing the WPF overlay window. Open **Overlay Settings** and enable **Display OBS overlay**. Copy the generated local URL and add it in OBS as a **Browser Source**. Set the source dimensions to your stream canvas (for example, 1920 × 1080). The page has a transparent background and receives live updates from the application.
+The application can publish the current Ability Draft board to OBS without capturing the WPF overlay window. Open **Overlay Settings** and enable **Display OBS overlay**. Copy the generated local URL and add it in OBS as a **Browser Source**. Set the source dimensions to your stream canvas to 1920 × 1080. The page has a transparent background and receives live updates from the application.
 
-The OBS endpoint is served by the .NET runtime itself (`HttpListener` + WebSocket); Node.js, ASP.NET Core hosting, Twitch login and Twitch OAuth are not required. The server listens only on `127.0.0.1` and starts only while the OBS option is enabled. The generated URL contains a random access token; keep it private and regenerate it by clearing `ObsAccessToken` from `overlay-settings.json` while the application is closed.
-
-Hero and ability images are served from the existing local `Assets` directory using the same fallback order as the WPF overlay. No image files are copied to OBS or uploaded to Twitch by the application.
+The OBS endpoint is served by the .NET runtime itself (`HttpListener` + WebSocket); Node.js, ASP.NET Core hosting, Twitch login and Twitch OAuth are not required. The server listens only on `127.0.0.1` and starts only while the OBS option is enabled. 
