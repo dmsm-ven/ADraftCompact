@@ -9,10 +9,10 @@ Overlay for Dota 2 Ability Draft mode: recognizes picked heroes/abilities and sh
   </tr>
   <tr>
     <td width="50%">
-      <img src="screenshot1.png"  />
+      <img src="docs/screenshot1.png"  />
     </td>
     <td width="50%">
-      <img src="screenshot2.png" />
+      <img src="docs/screenshot2.png" />
     </td>
   </tr>
 </table>
