@@ -14,17 +14,21 @@ public partial class OverlaySettingsWindow : Window
     private readonly OverlayWindow _overlay;
     private readonly OverlaySettingsService _settingsService;
     private readonly HotkeyService _hotkeys;
+    private readonly ObsOverlayServer _obsOverlayServer;
+    private readonly Action<OverlaySettings> _settingsChanged;
     private OverlaySettings _settings = new();
     private bool _initializing = true;
     private bool _positionEditing;
     private bool _settingsSaved;
 
-    public OverlaySettingsWindow(OverlayWindow overlay, OverlaySettingsService settingsService, HotkeyService hotkeys, object viewModel)
+    public OverlaySettingsWindow(OverlayWindow overlay, OverlaySettingsService settingsService, HotkeyService hotkeys, ObsOverlayServer obsOverlayServer, Action<OverlaySettings> settingsChanged, object viewModel)
     {
         InitializeComponent();
         _overlay = overlay;
         _settingsService = settingsService;
         _hotkeys = hotkeys;
+        _obsOverlayServer = obsOverlayServer;
+        _settingsChanged = settingsChanged;
         DataContext = viewModel; // download command and its progress text
 
         Loaded += async (_, _) =>
@@ -40,6 +44,9 @@ public partial class OverlaySettingsWindow : Window
             HeroGapSlider.Value = _settings.HeroGap;
             AbilityGapSlider.Value = _settings.AbilityGap;
             TeamGapSlider.Value = _settings.TeamGap;
+            LocalOverlayCheckBox.IsChecked = _settings.EnableLocalOverlay;
+            ObsOverlayCheckBox.IsChecked = _settings.EnableObsOverlay;
+            await RefreshObsServerAsync();
             ShowNamesCheckBox.IsChecked = _settings.ShowTeamNames;
             RoundBordersCheckBox.IsChecked = _settings.RoundIconBorders;
             (_settings.HorizontalLayout ? HorizontalTile : VerticalTile).IsChecked = true;
@@ -51,12 +58,47 @@ public partial class OverlaySettingsWindow : Window
 
         foreach (var slider in new[] { OpacitySlider, ContentOpacitySlider, IconSizeSlider, BorderSizeSlider, RowGapSlider, HeroGapSlider, AbilityGapSlider, TeamGapSlider })
             slider.ValueChanged += (_, _) => ApplyControlsLive();
+        LocalOverlayCheckBox.Checked += (_, _) => ApplyDisplayOptions();
+        LocalOverlayCheckBox.Unchecked += (_, _) => ApplyDisplayOptions();
+        ObsOverlayCheckBox.Checked += (_, _) => ApplyDisplayOptions();
+        ObsOverlayCheckBox.Unchecked += (_, _) => ApplyDisplayOptions();
         ShowNamesCheckBox.Checked += (_, _) => ApplyControlsLive();
         ShowNamesCheckBox.Unchecked += (_, _) => ApplyControlsLive();
         RoundBordersCheckBox.Checked += (_, _) => ApplyControlsLive();
         RoundBordersCheckBox.Unchecked += (_, _) => ApplyControlsLive();
         VerticalTile.Checked += (_, _) => ApplyControlsLive();
         HorizontalTile.Checked += (_, _) => ApplyControlsLive();
+    }
+
+    private async void ApplyDisplayOptions()
+    {
+        if (_initializing) return;
+        _settings.EnableLocalOverlay = LocalOverlayCheckBox.IsChecked == true;
+        _settings.EnableObsOverlay = ObsOverlayCheckBox.IsChecked == true;
+        if (!_settings.EnableLocalOverlay) _overlay.Hide();
+        _settingsChanged(_settings);
+        await RefreshObsServerAsync();
+        _obsOverlayServer.UpdateSettings(_settings);
+    }
+
+    private async Task RefreshObsServerAsync()
+    {
+        try
+        {
+            await _obsOverlayServer.ConfigureAsync(_settings);
+            ObsUrlBox.Text = _obsOverlayServer.Url ?? "OBS overlay is disabled";
+            CopyObsUrlButton.IsEnabled = _obsOverlayServer.Url is not null;
+        }
+        catch (Exception ex)
+        {
+            ObsUrlBox.Text = ex.Message;
+            CopyObsUrlButton.IsEnabled = false;
+        }
+    }
+
+    private void CopyObsUrlButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(_obsOverlayServer.Url)) Clipboard.SetText(_obsOverlayServer.Url);
     }
 
     private const string HotkeyDefaultHint = "Recognize abilities (works inside the game)";
@@ -138,6 +180,8 @@ public partial class OverlaySettingsWindow : Window
             _settings.Top = _overlay.Top;
         }
         _overlay.ApplySettings(_settings);
+        _obsOverlayServer.UpdateSettings(_settings);
+        _settingsChanged(_settings);
         UpdateLabels();
     }
 
@@ -171,6 +215,8 @@ public partial class OverlaySettingsWindow : Window
         UpdateColorButtons();
         if (_positionEditing) { _settings.Left = _overlay.Left; _settings.Top = _overlay.Top; }
         _overlay.ApplySettings(_settings);
+        _obsOverlayServer.UpdateSettings(_settings);
+        _settingsChanged(_settings);
     }
 
     private void BorderColorButton_Click(object sender, RoutedEventArgs e)
@@ -181,6 +227,8 @@ public partial class OverlaySettingsWindow : Window
         UpdateColorButtons();
         if (_positionEditing) { _settings.Left = _overlay.Left; _settings.Top = _overlay.Top; }
         _overlay.ApplySettings(_settings);
+        _obsOverlayServer.UpdateSettings(_settings);
+        _settingsChanged(_settings);
     }
 
     private string? PickColor(string initialColor)

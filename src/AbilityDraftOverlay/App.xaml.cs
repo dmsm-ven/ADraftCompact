@@ -58,6 +58,7 @@ public partial class App : Application
                 services.AddSingleton<ScreenshotRecognitionService>();
                 services.AddSingleton<OverlayWindow>();
                 services.AddSingleton<OverlaySettingsService>();
+                services.AddSingleton<ObsOverlayServer>();
                 services.AddSingleton<UpdateService>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
@@ -148,6 +149,8 @@ public partial class App : Application
         _host?.Services.GetService<HotkeyService>()?.Dispose();
         if (_host is not null)
         {
+            if (_host.Services.GetService<ObsOverlayServer>() is { } obsServer)
+                await obsServer.DisposeAsync();
             await _host.StopAsync();
             _host.Dispose();
         }

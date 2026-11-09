@@ -2,6 +2,12 @@ namespace ADraftCompact.Models;
 
 public sealed class OverlaySettings
 {
+    /// <summary>Show the native transparent WPF overlay over the game.</summary>
+    public bool EnableLocalOverlay { get; set; } = true;
+    /// <summary>Serve the browser overlay for OBS.</summary>
+    public bool EnableObsOverlay { get; set; }
+    /// <summary>Random capability token used to protect the local OBS page and its assets.</summary>
+    public string ObsAccessToken { get; set; } = string.Empty;
     public double Left { get; set; } = -1;
     public double Top { get; set; } = -1;
     public int IconSize { get; set; } = 40;

@@ -24,6 +24,8 @@ public partial class MainViewModel : ObservableObject
     private readonly ILogger<MainViewModel> _logger;
     private readonly OverlayWindow _overlayWindow;
     private readonly OverlaySettingsService _overlaySettingsService;
+    private readonly ObsOverlayServer _obsOverlayServer;
+    private OverlaySettings _currentOverlaySettings = new();
     private bool _isSettingsOpen;
 
     [ObservableProperty, NotifyPropertyChangedFor(nameof(OverlayButtonText), nameof(OverlayButtonIcon))] private bool isOverlayVisible;
@@ -52,7 +54,7 @@ public partial class MainViewModel : ObservableObject
 
     public MainViewModel(DotaAssetsDownloader assetsDownloader, DraftSessionTracker tracker, ManualRecognitionService recognition,
         OverlayAutoHide autoHide, HotkeyService hotkeys, IconIndex iconIndex, OverlayWindow overlayWindow,
-        OverlaySettingsService overlaySettingsService, ILogger<MainViewModel> logger)
+        OverlaySettingsService overlaySettingsService, ObsOverlayServer obsOverlayServer, ILogger<MainViewModel> logger)
     {
         _assetsDownloader = assetsDownloader;
         _tracker = tracker;
@@ -66,6 +68,7 @@ public partial class MainViewModel : ObservableObject
         _logger = logger;
         _overlayWindow = overlayWindow;
         _overlaySettingsService = overlaySettingsService;
+        _obsOverlayServer = obsOverlayServer;
         _ = LoadOverlaySettingsAsync();
         if (_tracker.Current is null && LastBoardStore.Load() is { } lastBoard) _tracker.Restore(lastBoard);
         _overlayWindow.UpdateSession(_tracker.Current);
@@ -108,6 +111,7 @@ public partial class MainViewModel : ObservableObject
     private void SetOverlayVisible(bool visible, string? reason = null)
     {
         if (visible == IsOverlayVisible) return;
+        visible &= _currentOverlaySettings.EnableLocalOverlay;
         if (visible)
         {
             _overlayWindow.UpdateSession(_tracker.Current);
@@ -124,13 +128,32 @@ public partial class MainViewModel : ObservableObject
     private async Task LoadOverlaySettingsAsync()
     {
         var settings = await _overlaySettingsService.LoadAsync();
-        await Application.Current.Dispatcher.InvokeAsync(() => _overlayWindow.ApplySettings(settings));
+        _currentOverlaySettings = settings;
+        await Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            _overlayWindow.ApplySettings(settings);
+            if (!settings.EnableLocalOverlay) SetOverlayVisible(false);
+        });
+        try
+        {
+            await _obsOverlayServer.ConfigureAsync(settings);
+            _obsOverlayServer.UpdateSession(_tracker.Current);
+        }
+        catch (Exception ex) { _logger.LogError(ex, "Could not start OBS overlay server"); StatusText = ex.Message; }
+    }
+
+    private void OnOverlaySettingsChanged(OverlaySettings settings)
+    {
+        var wasEnabled = _currentOverlaySettings.EnableLocalOverlay;
+        _currentOverlaySettings = settings;
+        if (wasEnabled && !settings.EnableLocalOverlay) SetOverlayVisible(false);
+        else if (!wasEnabled && settings.EnableLocalOverlay && _tracker.Current is not null) SetOverlayVisible(true);
     }
 
     [RelayCommand]
     private void OpenOverlaySettings()
     {
-        var window = new OverlaySettingsWindow(_overlayWindow, _overlaySettingsService, _hotkeys, this) { Owner = Application.Current.MainWindow };
+        var window = new OverlaySettingsWindow(_overlayWindow, _overlaySettingsService, _hotkeys, _obsOverlayServer, OnOverlaySettingsChanged, this) { Owner = Application.Current.MainWindow };
         _isSettingsOpen = true;
         try { window.ShowDialog(); }
         finally { _isSettingsOpen = false; }
@@ -270,6 +293,7 @@ public partial class MainViewModel : ObservableObject
             ? $"Session {session.Id} · since {session.StartedAt:MM-dd HH:mm:ss} · captures {session.Captures} · picks {session.TotalPicks}"
             : "Session: none";
         _overlayWindow.UpdateSession(update.Session);
+        _obsOverlayServer.UpdateSession(update.Session);
         if (update.Session is { } current) LastBoardStore.Save(current);
         if (snapshot is { BoardDetected: true }) ScheduleAttentionGlow(update.Session);
     }
